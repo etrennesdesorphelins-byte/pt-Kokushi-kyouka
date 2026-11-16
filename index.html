@@ -161,6 +161,36 @@
   .explanation div { white-space: pre-wrap; margin-top: 6px; }
   .filter-row { display: flex; gap: 8px; margin-bottom: 10px; }
 
+  .link-btn { background: none; border: none; color: var(--teal); text-decoration: underline; cursor: pointer; font-size: 0.85rem; margin-top: 14px; }
+  .send-btn { width: 100%; padding: 12px; background: var(--white); color: var(--navy); border: 2px solid var(--navy); border-radius: 11px; font-size: 0.95rem; font-weight: 700; cursor: pointer; margin-bottom: 14px; }
+  .send-btn:hover { background: var(--light); }
+  select.input, textarea.input { font-family: inherit; }
+  textarea.input { resize: vertical; min-height: 70px; font-size: 0.9rem; }
+  .ok-msg { background: #DCFCE7; color: var(--correct); padding: 12px; border-radius: 10px; text-align: center; margin: 10px 0; font-size: 0.88rem; }
+
+  /* teacher */
+  .t-table-wrap { overflow-x: auto; }
+  .t-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 640px; }
+  .t-table th { background: var(--light); color: var(--navy); padding: 8px 6px; text-align: left; cursor: pointer; white-space: nowrap; position: sticky; top: 0; }
+  .t-table th.sorted::after { content: ' ▾'; }
+  .t-table th.sorted.asc::after { content: ' ▴'; }
+  .t-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .t-table td.n, .t-table th.n { text-align: right; }
+  .t-table tr.row { cursor: pointer; }
+  .t-table tr.row:hover td { background: #F4F8FB; }
+  .t-table tr.inactive td { background: #FEF2F2; }
+  .t-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .chk { font-size: 0.82rem; color: var(--dark); display: flex; align-items: center; gap: 5px; }
+  .sw-item { border-bottom: 1px solid var(--border); padding: 10px 0; font-size: 0.85rem; }
+  .sw-item:last-child { border-bottom: none; }
+  .sw-meta { font-size: 0.75rem; color: var(--gray); margin-bottom: 4px; }
+  .sw-item details { margin-top: 6px; }
+  .sw-item summary { color: var(--teal); cursor: pointer; font-size: 0.8rem; }
+  .ses-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .ses-table th { text-align: left; color: var(--gray); font-weight: 600; padding: 5px 4px; border-bottom: 2px solid var(--light); }
+  .ses-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  .ses-table .n { text-align: right; }
+
   .hidden { display: none !important; }
   .error-msg { background: #FEE2E2; color: var(--wrong); padding: 12px; border-radius: 10px; text-align: center; margin: 10px 0; font-size: 0.88rem; }
 
@@ -202,6 +232,79 @@
       <div id="loginError" class="error-msg hidden"></div>
       <button class="start-btn" id="loginBtn" onclick="doLogin()">ログイン</button>
       <p class="note" style="margin-top:12px;">一度ログインすると，この端末では次回から自動でログインします．共用端末では使用後にログアウトしてください．</p>
+      <div style="text-align:center"><button class="link-btn" onclick="showScreen('tLoginScreen')">教員用ログインはこちら</button></div>
+    </div>
+  </div>
+
+  <!-- Teacher login -->
+  <div id="tLoginScreen" class="hidden">
+    <div class="card login-card">
+      <h2>👩‍🏫 教員用ログイン</h2>
+      <input class="input" id="tEmailInput" placeholder="メールアドレス（教員名簿に登録したもの）" type="email" autocomplete="username">
+      <input class="input" id="tPassInput" placeholder="パスコード" type="password" autocomplete="current-password">
+      <div id="tLoginError" class="error-msg hidden"></div>
+      <button class="start-btn" id="tLoginBtn" onclick="doTeacherLogin()">ログイン</button>
+      <div style="text-align:center"><button class="link-btn" onclick="showScreen('loginScreen')">← 学生用ログインに戻る</button></div>
+    </div>
+  </div>
+
+  <!-- Teacher home -->
+  <div id="tHomeScreen" class="hidden">
+    <div class="card">
+      <h2>👥 学生一覧</h2>
+      <div class="t-actions">
+        <label class="chk hidden" id="tMineWrap"><input type="checkbox" id="tMineOnly" onchange="renderOverview()"> 担当学生のみ</label>
+        <span class="note" id="tAsOf"></span>
+        <button class="all-btn" style="margin-left:auto" onclick="loadOverview()">↻ 更新</button>
+      </div>
+      <div class="t-table-wrap"><table class="t-table" id="tTable"></table></div>
+      <p class="note" style="margin-top:8px">行を押すとその学生の詳細を表示．見出しを押すと並べ替え．赤い行は直近7日間に学習記録がない学生．</p>
+    </div>
+    <div class="card">
+      <h2>📊 分野別の正答率（全学生の累計）</h2>
+      <div class="major-row" id="cFieldTabs"></div>
+      <div id="cFieldBox" style="position:relative"><canvas id="cFieldChart"></canvas></div>
+      <div class="empty hidden" id="cFieldEmpty">記録がない．</div>
+    </div>
+    <div class="card">
+      <h2>📨 週次レポート</h2>
+      <p class="note" style="margin-bottom:10px">毎週金曜20時台に，教員名簿の「週次レポート」欄が「全員」または「担当のみ」の教員へPDFを自動送信する．下のボタンで今週分を自分宛てに試し送信できる．</p>
+      <button class="send-btn" id="weeklyNowBtn" onclick="sendWeeklyNow()">今週のレポートを自分宛てに送信（試し送信）</button>
+      <div id="weeklyMsg"></div>
+    </div>
+  </div>
+
+  <!-- Teacher: student detail -->
+  <div id="tStudentScreen" class="hidden">
+    <button class="nav-btn btn-secondary" style="margin-bottom:14px;width:100%" onclick="showScreen('tHomeScreen')">← 学生一覧に戻る</button>
+    <div class="card" style="padding:16px 22px"><h2 style="margin:0;border:none;padding:0" id="tsName"></h2></div>
+    <div class="tiles">
+      <div class="tile"><div class="tile-val" id="tsTotal">–</div><div class="tile-key">累計解答数</div></div>
+      <div class="tile"><div class="tile-val" id="tsRate">–</div><div class="tile-key">累計正答率</div></div>
+      <div class="tile"><div class="tile-val" id="tsDays">–</div><div class="tile-key">学習日数</div></div>
+    </div>
+    <div class="card">
+      <h2>📈 日ごとの正答率</h2>
+      <div class="chart-box" id="tsDailyBox"><canvas id="tsDailyChart"></canvas></div>
+      <div class="empty hidden" id="tsDailyEmpty">解答記録がない．</div>
+    </div>
+    <div class="card">
+      <h2>📊 分野別の正答率（累計）</h2>
+      <div class="major-row" id="tsFieldTabs"></div>
+      <div id="tsFieldBox" style="position:relative"><canvas id="tsFieldChart"></canvas></div>
+      <div class="empty hidden" id="tsFieldEmpty">記録がない．</div>
+    </div>
+    <div class="card">
+      <h2>🎯 自信度と正誤（累計）</h2>
+      <table class="matrix" id="tsMatrix"></table>
+    </div>
+    <div class="card">
+      <h2>⚠️ 自信ありで間違えた問題</h2>
+      <div id="tsSureWrong"></div>
+    </div>
+    <div class="card">
+      <h2>🗓 直近の演習記録</h2>
+      <div id="tsSessions"></div>
     </div>
   </div>
 
@@ -213,7 +316,8 @@
       <div class="tile"><div class="tile-val" id="tDays">–</div><div class="tile-key">学習日数</div></div>
     </div>
 
-    <button class="start-btn" style="margin-bottom:14px" onclick="showScreen('setupScreen')">📝 演習を始める →</button>
+    <button class="start-btn" style="margin-bottom:10px" onclick="showScreen('setupScreen')">📝 演習を始める →</button>
+    <button class="send-btn" onclick="openSendModal()">📨 教員に学習レポートを送る</button>
 
     <div class="card">
       <h2>📈 日ごとの正答率</h2>
@@ -344,6 +448,22 @@
   </div>
 </main>
 
+<div class="modal-bg hidden" id="sendModal">
+  <div class="modal" style="text-align:left">
+    <h2>📨 学習レポートを送る</h2>
+    <p class="note" style="margin-bottom:10px">これまでの成績の推移・分野別正答率・自信ありで間違えた問題をPDFにまとめ，選んだ先生にメールで送信する（1日3回まで）．</p>
+    <label class="note" style="font-weight:600;color:var(--teal)">送信先の先生</label>
+    <select class="input" id="sendTeacher"></select>
+    <label class="note" style="font-weight:600;color:var(--teal)">メッセージ（任意）</label>
+    <textarea class="input" id="sendMessage" maxlength="500" placeholder="例：内部障害が苦手です．おすすめの勉強法を教えてください．"></textarea>
+    <div id="sendResult"></div>
+    <div class="nav-btns">
+      <button class="nav-btn btn-secondary" onclick="closeSendModal()">閉じる</button>
+      <button class="nav-btn btn-primary" id="sendBtn" onclick="sendReport()">送信する</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg hidden" id="modal">
   <div class="modal">
     <p id="modalMsg"></p>
@@ -384,8 +504,12 @@ let startedAt = null;
 let sessionId = '';
 let lastSubmit = null;
 let stats = null;
-let dailyChart = null, fieldChart = null;
-let fieldTab = 'すべて';
+const charts = {};          // canvas id -> Chart
+const fieldTabs = {};       // 分野グラフごとの選択中タブ
+const STORE_TEACHER = 'kyoka_teacher';
+let teacher = null;         // {email, tpass, name}
+let overview = null;
+let tSort = { key: 'w7', asc: true };
 
 // ===== 共通 =====
 const $ = id => document.getElementById(id);
@@ -393,7 +517,7 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function showScreen(id) {
-  ['loadingScreen','loginScreen','homeScreen','setupScreen','quizScreen','resultScreen']
+  ['loadingScreen','loginScreen','homeScreen','setupScreen','quizScreen','resultScreen','tLoginScreen','tHomeScreen','tStudentScreen']
     .forEach(s => $(s).classList.toggle('hidden', s !== id));
   window.scrollTo(0, 0);
 }
@@ -426,7 +550,9 @@ async function boot() {
     return;
   }
   buildTree();
-  if (user) { setUserBox(); goHome(); }
+  try { teacher = JSON.parse(localStorage.getItem(STORE_TEACHER) || 'null'); } catch (e) { teacher = null; }
+  if (teacher) { setTeacherBox(); loadOverview(); }
+  else if (user) { setUserBox(); goHome(); }
   else showScreen('loginScreen');
 }
 
@@ -483,7 +609,8 @@ function setUserBox() {
 }
 function logout() {
   localStorage.removeItem(STORE_USER);
-  user = null; stats = null;
+  localStorage.removeItem(STORE_TEACHER);
+  user = null; stats = null; teacher = null; overview = null;
   $('userBox').classList.add('hidden');
   $('sidInput').value = ''; $('passInput').value = '';
   $('passInput').classList.add('hidden');
@@ -512,68 +639,71 @@ function renderDashboard() {
   $('tTotal').textContent = stats.total;
   $('tRate').textContent = stats.total ? Math.round(stats.correct / stats.total * 100) + '%' : '–';
   $('tDays').textContent = stats.days;
-
-  // 日別正答率（折れ線）
-  const hasDaily = stats.daily.length > 0;
-  $('dailyBox').classList.toggle('hidden', !hasDaily);
-  $('dailyEmpty').textContent = 'まだ解答記録がない．演習を始めよう．';
-  $('dailyEmpty').classList.toggle('hidden', hasDaily);
-  if (dailyChart) dailyChart.destroy();
-  if (hasDaily) {
-    const d = stats.daily;
-    dailyChart = new Chart($('dailyChart'), {
-      type: 'line',
-      data: {
-        labels: d.map(x => { const [, m, dd] = x.date.split('-'); return `${+m}/${+dd}`; }),
-        datasets: [{
-          label: '正答率', data: d.map(x => Math.round(x.correct / x.total * 1000) / 10),
-          borderColor: '#1C7293', backgroundColor: 'rgba(28,114,147,0.10)', fill: true,
-          tension: 0.25, pointRadius: 4, pointBackgroundColor: '#1C7293'
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: c => `正答率 ${c.parsed.y}%（${d[c.dataIndex].correct}/${d[c.dataIndex].total}問）` } }
-        }
-      }
-    });
-  }
-
-  // 分野タブ
-  const majors = ['すべて', ...sortMajors([...new Set(stats.fields.map(f => f.major))])];
-  if (!majors.includes(fieldTab)) fieldTab = 'すべて';
-  $('fieldTabs').innerHTML = '';
-  majors.forEach(m => {
-    const b = document.createElement('button');
-    b.className = 'tab-btn' + (m === fieldTab ? ' active' : '');
-    b.textContent = m;
-    b.onclick = () => { fieldTab = m; renderDashboard(); };
-    $('fieldTabs').appendChild(b);
-  });
-  renderFieldChart();
+  drawDaily('dailyChart', 'dailyBox', 'dailyEmpty', stats.daily, 'まだ解答記録がない．演習を始めよう．');
+  drawFieldSection('', stats.fields);
 }
 
-function renderFieldChart() {
-  // 「すべて」は小分野名で合算，各大分野タブはその大分野の小分野のみ
+// 日ごとの正答率（折れ線）
+function drawDaily(canvasId, boxId, emptyId, d, emptyMsg) {
+  const has = d.length > 0;
+  $(boxId).classList.toggle('hidden', !has);
+  $(emptyId).textContent = emptyMsg;
+  $(emptyId).classList.toggle('hidden', has);
+  if (charts[canvasId]) charts[canvasId].destroy();
+  if (!has) return;
+  charts[canvasId] = new Chart($(canvasId), {
+    type: 'line',
+    data: {
+      labels: d.map(x => { const [, m, dd] = x.date.split('-'); return `${+m}/${+dd}`; }),
+      datasets: [{
+        label: '正答率', data: d.map(x => Math.round(x.correct / x.total * 1000) / 10),
+        borderColor: '#1C7293', backgroundColor: 'rgba(28,114,147,0.10)', fill: true,
+        tension: 0.25, pointRadius: 4, pointBackgroundColor: '#1C7293'
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `正答率 ${c.parsed.y}%（${d[c.dataIndex].correct}/${d[c.dataIndex].total}問）` } }
+      }
+    }
+  });
+}
+
+// 分野別の正答率（タブ＋横棒）．prefix: ''=学生マイページ, 'ts'=教員の学生詳細, 'c'=全学生
+function drawFieldSection(prefix, fields) {
+  const id = k => prefix ? prefix + k : k.charAt(0).toLowerCase() + k.slice(1);
+  const tabsEl = $(id('FieldTabs')), key = prefix || 'me';
+  const majors = ['すべて', ...sortMajors([...new Set(fields.map(f => f.major))])];
+  if (!majors.includes(fieldTabs[key])) fieldTabs[key] = 'すべて';
+  tabsEl.innerHTML = '';
+  majors.forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'tab-btn' + (m === fieldTabs[key] ? ' active' : '');
+    b.textContent = m;
+    b.onclick = () => { fieldTabs[key] = m; drawFieldSection(prefix, fields); };
+    tabsEl.appendChild(b);
+  });
+  const tab = fieldTabs[key];
   const agg = {};
-  stats.fields.forEach(f => {
-    if (fieldTab !== 'すべて' && f.major !== fieldTab) return;
+  fields.forEach(f => {
+    if (tab !== 'すべて' && f.major !== tab) return;
     const k = catOf(f.minor);
     agg[k] = agg[k] || { name: k, total: 0, correct: 0 };
     agg[k].total += f.total; agg[k].correct += f.correct;
   });
   const rows = Object.values(agg).map(a => Object.assign(a, { rate: Math.round(a.correct / a.total * 1000) / 10 }))
     .sort((a, b) => a.rate - b.rate || b.total - a.total);
-  if (fieldChart) fieldChart.destroy();
-  $('fieldEmpty').classList.toggle('hidden', rows.length > 0);
-  $('fieldBox').classList.toggle('hidden', rows.length === 0);
+  const canvasId = id('FieldChart'), box = $(id('FieldBox'));
+  if (charts[canvasId]) charts[canvasId].destroy();
+  $(id('FieldEmpty')).classList.toggle('hidden', rows.length > 0);
+  box.classList.toggle('hidden', rows.length === 0);
   if (!rows.length) return;
-  $('fieldBox').style.height = Math.max(160, rows.length * 30 + 40) + 'px';
+  box.style.height = Math.max(160, rows.length * 30 + 40) + 'px';
   const color = r => r >= 80 ? '#16A34A' : r >= 60 ? '#1C7293' : r >= 40 ? '#F0A500' : '#DC2626';
-  fieldChart = new Chart($('fieldChart'), {
+  charts[canvasId] = new Chart($(canvasId), {
     type: 'bar',
     data: {
       labels: rows.map(r => `${r.name}（${r.total}）`),
@@ -588,6 +718,181 @@ function renderFieldChart() {
       }
     }
   });
+}
+
+// ===== 学生：教員にレポートを送る =====
+async function openSendModal() {
+  $('sendResult').innerHTML = '';
+  $('sendBtn').disabled = false;
+  $('sendTeacher').innerHTML = '<option>読み込み中…</option>';
+  $('sendModal').classList.remove('hidden');
+  try {
+    const r = await apiGet({ action: 'getTeachers', sid: user.sid, pass: user.pass || '' });
+    if (!r.ok) throw new Error(r.error);
+    if (!r.teachers.length) throw new Error('送信先の先生が登録されていない．');
+    $('sendTeacher').innerHTML = '<option value="">選択してください</option>' +
+      r.teachers.map(t => `<option value="${esc(t)}">${esc(t)} 先生</option>`).join('');
+  } catch (err) {
+    $('sendTeacher').innerHTML = '';
+    $('sendResult').innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+    $('sendBtn').disabled = true;
+  }
+}
+function closeSendModal() { $('sendModal').classList.add('hidden'); }
+async function sendReport() {
+  const t = $('sendTeacher').value;
+  if (!t) { $('sendResult').innerHTML = '<div class="error-msg">送信先の先生を選択してください．</div>'; return; }
+  $('sendBtn').disabled = true; $('sendBtn').textContent = '送信中…';
+  $('sendResult').innerHTML = '';
+  try {
+    const r = await apiPost({ action: 'sendReport', sid: user.sid, pass: user.pass || '', teacher: t, message: $('sendMessage').value.trim() });
+    if (!r.ok) throw new Error(r.error);
+    $('sendResult').innerHTML = `<div class="ok-msg">✅ ${esc(r.teacher)} 先生に送信した．（今日あと${r.remaining}回送信できる）</div>`;
+    $('sendMessage').value = '';
+  } catch (err) {
+    $('sendResult').innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+    $('sendBtn').disabled = false;
+  } finally {
+    $('sendBtn').textContent = '送信する';
+  }
+}
+
+// ===== 教員用ページ =====
+async function doTeacherLogin() {
+  const email = $('tEmailInput').value.trim(), tpass = $('tPassInput').value.trim();
+  $('tLoginError').classList.add('hidden');
+  if (!email || !tpass) { showError('tLoginError', 'メールアドレスとパスコードを入力してください．'); return; }
+  $('tLoginBtn').disabled = true; $('tLoginBtn').textContent = '確認中…';
+  try {
+    const r = await apiGet({ action: 'teacherLogin', email, tpass });
+    if (!r.ok) { showError('tLoginError', r.error); return; }
+    teacher = { email: r.email, tpass, name: r.name };
+    localStorage.setItem(STORE_TEACHER, JSON.stringify(teacher));
+    localStorage.removeItem(STORE_USER); user = null;
+    setTeacherBox();
+    loadOverview();
+  } catch (err) {
+    showError('tLoginError', err.message);
+  } finally {
+    $('tLoginBtn').disabled = false; $('tLoginBtn').textContent = 'ログイン';
+  }
+}
+$('tPassInput').addEventListener('keydown', e => { if (e.key === 'Enter') doTeacherLogin(); });
+
+function setTeacherBox() {
+  $('userName').textContent = teacher.name + ' 先生';
+  $('userBox').classList.remove('hidden');
+}
+function tAuth() { return { email: teacher.email, tpass: teacher.tpass }; }
+
+async function loadOverview() {
+  showScreen('tHomeScreen');
+  $('tTable').innerHTML = '<tr><td class="empty">読み込み中…</td></tr>';
+  try {
+    const r = await apiGet(Object.assign({ action: 'getOverview' }, tAuth()));
+    if (!r.ok) {
+      if (/パスコード|教員名簿/.test(r.error)) { logout(); showScreen('tLoginScreen'); showError('tLoginError', r.error); return; }
+      throw new Error(r.error);
+    }
+    overview = r;
+    const hasMine = r.students.some(s => s.teacher === teacher.name);
+    $('tMineWrap').classList.toggle('hidden', !hasMine);
+    const [, m, d] = r.today.split('-');
+    $('tAsOf').textContent = `${+m}/${+d} 時点・${r.students.length}名`;
+    renderOverview();
+    drawFieldSection('c', r.fields);
+  } catch (err) {
+    $('tTable').innerHTML = `<tr><td><div class="error-msg">${esc(err.message)}</div></td></tr>`;
+  }
+}
+
+const T_COLS = [
+  { key: 'sid', label: '学籍番号' },
+  { key: 'name', label: '氏名' },
+  { key: 'teacher', label: '担当' },
+  { key: 'w7', label: '7日 解答数', num: true },
+  { key: 'w7rate', label: '7日 正答率', num: true },
+  { key: 'diff', label: '前週比', num: true },
+  { key: 'sureNg7', label: '7日 自信あり不正解', num: true },
+  { key: 'total', label: '累計 解答数', num: true },
+  { key: 'rate', label: '累計 正答率', num: true },
+  { key: 'lastDate', label: '最終学習日' },
+];
+function renderOverview() {
+  const pr = (c, n) => n ? Math.round(c / n * 1000) / 10 : null;
+  let rows = overview.students.map(s => Object.assign({}, s, {
+    w7rate: pr(s.w7c, s.w7), rate: pr(s.correct, s.total),
+    diff: s.w7 && s.p7 ? Math.round((pr(s.w7c, s.w7) - pr(s.p7c, s.p7)) * 10) / 10 : null
+  }));
+  if ($('tMineOnly').checked) rows = rows.filter(s => s.teacher === teacher.name);
+  const k = tSort.key, dir = tSort.asc ? 1 : -1;
+  rows.sort((a, b) => {
+    const x = a[k], y = b[k];
+    if (x === null || x === '') return 1; if (y === null || y === '') return -1;
+    return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'ja')) * dir;
+  });
+  const fmt = (c, v) => v === null || v === '' ? '–'
+    : c.key.endsWith('rate') ? v + '%'
+    : c.key === 'diff' ? `<span style="color:${v >= 0 ? 'var(--correct)' : 'var(--wrong)'}">${v >= 0 ? '+' : ''}${v}</span>`
+    : c.key === 'lastDate' ? v.slice(5).replace('-', '/')
+    : c.key === 'sureNg7' && v > 0 ? `<b style="color:var(--wrong)">${v}</b>` : esc(v);
+  $('tTable').innerHTML =
+    '<tr>' + T_COLS.map(c => `<th class="${c.num ? 'n' : ''} ${tSort.key === c.key ? 'sorted' + (tSort.asc ? ' asc' : '') : ''}" onclick="sortOverview('${c.key}')">${c.label}</th>`).join('') + '</tr>' +
+    (rows.length ? rows.map(s => `<tr class="row ${s.w7 ? '' : 'inactive'}" onclick="openStudent('${esc(s.sid)}')">` +
+      T_COLS.map(c => `<td class="${c.num ? 'n' : ''}">${fmt(c, s[c.key])}</td>`).join('') + '</tr>').join('')
+      : `<tr><td colspan="${T_COLS.length}" class="empty">学生名簿に学生が登録されていない．</td></tr>`);
+}
+function sortOverview(key) {
+  tSort = { key, asc: tSort.key === key ? !tSort.asc : true };
+  renderOverview();
+}
+
+async function openStudent(sid) {
+  showScreen('tStudentScreen');
+  $('tsName').textContent = '読み込み中…';
+  ['tsSureWrong', 'tsSessions'].forEach(i => $(i).innerHTML = '');
+  try {
+    const r = await apiGet(Object.assign({ action: 'getStudentDetail', sid }, tAuth()));
+    if (!r.ok) throw new Error(r.error);
+    $('tsName').textContent = `${r.name}（${r.sid}）` + (r.teacher ? `　担当：${r.teacher}` : '');
+    $('tsTotal').textContent = r.total;
+    $('tsRate').textContent = r.total ? Math.round(r.correct / r.total * 100) + '%' : '–';
+    $('tsDays').textContent = r.days;
+    drawDaily('tsDailyChart', 'tsDailyBox', 'tsDailyEmpty', r.daily, '解答記録がない．');
+    drawFieldSection('ts', r.fields);
+    const c = r.conf;
+    $('tsMatrix').innerHTML = `<tr><th></th><th>正解</th><th>不正解・未回答</th></tr>
+      <tr><th>自信あり</th><td class="m-ok"><b>${c.sureOk}</b><span>理解できている</span></td><td class="m-warn"><b>${c.sureNg}</b><span>⚠️ 思い込み・誤解</span></td></tr>
+      <tr><th>自信なし</th><td class="m-luck"><b>${c.unsureOk}</b><span>まぐれ当たり</span></td><td class="m-ng"><b>${c.unsureNg}</b><span>未習得</span></td></tr>
+      ${c.none ? `<tr><td colspan="3" class="note">自信度未選択：${c.none}問</td></tr>` : ''}`;
+    const qmap = Object.fromEntries(allQuestions.map(q => [q.id, q]));
+    $('tsSureWrong').innerHTML = r.sureWrong.length ? r.sureWrong.slice(0, 50).map((w, i) => {
+      const q = qmap[w.id];
+      return `<div class="sw-item ${i >= 10 ? 'hidden more' : ''}"><div class="sw-meta">${w.date.slice(5).replace('-', '/')}・${esc(w.minor)}・選択 ${esc(w.sel)} → 正答 ${esc(w.ans)}${w.count > 1 ? `・<b style="color:var(--wrong)">${w.count}回</b>` : ''}</div>
+        <div>${esc(q ? q.text : '問題ID ' + w.id)}</div>
+        ${q ? `<details><summary>選択肢と解説</summary><ol style="margin:6px 0 6px 20px">${q.choices.map(ch => `<li>${esc(ch)}</li>`).join('')}</ol><div class="explanation"><div>${esc(q.explanation || '')}</div></div></details>` : ''}</div>`;
+    }).join('') + (r.sureWrong.length > 10 ? `<button class="all-btn" style="margin-top:10px" onclick="this.remove();document.querySelectorAll('#tsSureWrong .more').forEach(e=>e.classList.remove('hidden'))">もっと見る（全${Math.min(50, r.sureWrong.length)}問）</button>` : '')
+      : '<div class="empty">該当なし</div>';
+    $('tsSessions').innerHTML = r.sessions.length ? '<table class="ses-table"><tr><th>日時</th><th class="n">問題数</th><th class="n">正答率</th><th class="n">所要時間</th><th class="n">自信あり不正解</th></tr>' +
+      r.sessions.map(x => `<tr><td>${esc(x.at.slice(5).replace('-', '/'))}</td><td class="n">${x.n}</td><td class="n">${x.rate}%</td><td class="n">${x.minutes === '' ? '–' : x.minutes + '分'}</td><td class="n">${x.sureWrong === '' ? '–' : x.sureWrong}</td></tr>`).join('') + '</table>'
+      : '<div class="empty">記録なし</div>';
+  } catch (err) {
+    $('tsName').textContent = '読み込みに失敗：' + err.message;
+  }
+}
+
+async function sendWeeklyNow() {
+  $('weeklyNowBtn').disabled = true; $('weeklyNowBtn').textContent = '作成・送信中…（数十秒かかることがある）';
+  $('weeklyMsg').innerHTML = '';
+  try {
+    const r = await apiPost(Object.assign({ action: 'sendWeeklyNow' }, tAuth()));
+    if (!r.ok) throw new Error(r.error);
+    $('weeklyMsg').innerHTML = `<div class="ok-msg">✅ ${esc(r.email)} に送信した（対象 ${r.students}名）．</div>`;
+  } catch (err) {
+    $('weeklyMsg').innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+  } finally {
+    $('weeklyNowBtn').disabled = false; $('weeklyNowBtn').textContent = '今週のレポートを自分宛てに送信（試し送信）';
+  }
 }
 
 function sortMajors(list) {
