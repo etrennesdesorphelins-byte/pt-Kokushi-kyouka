@@ -95,6 +95,30 @@
   .choice-btn.selected { border-color: var(--navy); background: var(--light); }
   .choice-btn.selected .num { background: var(--navy); color: var(--white); }
 
+  .conf-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); }
+  .conf-label { font-size: 0.82rem; font-weight: 600; color: var(--teal); margin-right: 4px; }
+  .conf-btn { flex: 1; padding: 10px; border-radius: 10px; border: 2px solid var(--border); background: var(--white); font-size: 0.88rem; cursor: pointer; transition: all 0.2s; color: var(--dark); }
+  .conf-btn:hover { border-color: var(--teal); }
+  .conf-btn.on.sure { background: var(--correct); border-color: var(--correct); color: var(--white); font-weight: 700; }
+  .conf-btn.on.unsure { background: var(--accent); border-color: var(--accent); color: var(--white); font-weight: 700; }
+  .pal .dot { display: block; width: 6px; height: 6px; border-radius: 50%; margin: 1px auto 0; }
+
+  .matrix { width: 100%; border-collapse: separate; border-spacing: 6px; margin-top: 14px; }
+  .matrix th { font-size: 0.75rem; color: var(--gray); font-weight: 600; }
+  .matrix td { text-align: center; border-radius: 10px; padding: 10px 4px; cursor: pointer; }
+  .matrix td b { display: block; font-size: 1.3rem; }
+  .matrix td span { font-size: 0.7rem; }
+  .m-ok { background: #F0FDF4; color: var(--correct); }
+  .m-warn { background: #FEF2F2; color: var(--wrong); border: 2px solid #FCA5A5; }
+  .m-luck { background: #FFF9E6; color: #B77900; }
+  .m-ng { background: #F1F5F9; color: var(--gray); }
+  .conf-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+  .conf-tag.sure { background: #DCFCE7; color: var(--correct); }
+  .conf-tag.unsure { background: #FEF3C7; color: #B77900; }
+  .conf-tag.none { background: #F1F5F9; color: var(--gray); }
+  .filter-row { flex-wrap: wrap; }
+  .filter-row .tab-btn { font-size: 0.78rem; padding: 6px 12px; }
+
   .nav-btns { display: flex; gap: 10px; margin-top: 14px; }
   .nav-btn { flex: 1; padding: 12px; border: none; border-radius: 11px; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
   .nav-btn:disabled { opacity: 0.4; cursor: default; }
@@ -257,6 +281,11 @@
       <p class="q-type" id="qType"></p>
       <img id="qImage" class="q-image hidden" src="" alt="問題画像">
       <div class="choices" id="choices"></div>
+      <div class="conf-row">
+        <span class="conf-label">自信度</span>
+        <button class="conf-btn sure" id="confSure" onclick="setConf('あり')">👍 自信あり</button>
+        <button class="conf-btn unsure" id="confUnsure" onclick="setConf('なし')">🤔 自信なし</button>
+      </div>
     </div>
 
     <div class="nav-btns">
@@ -291,6 +320,16 @@
           <div class="stat"><div class="stat-val" style="color:var(--gray)" id="sSkip">0</div><div class="stat-key">未回答</div></div>
         </div>
       </div>
+      <table class="matrix">
+        <tr><th></th><th>正解</th><th>不正解・未回答</th></tr>
+        <tr><th>自信あり</th>
+          <td class="m-ok" onclick="filterBy('sureOk')"><b id="mSureOk">0</b><span>理解できている</span></td>
+          <td class="m-warn" onclick="filterBy('sureNg')"><b id="mSureNg">0</b><span>⚠️ 思い込み・誤解</span></td></tr>
+        <tr><th>自信なし</th>
+          <td class="m-luck" onclick="filterBy('unsureOk')"><b id="mUnsureOk">0</b><span>まぐれ当たり</span></td>
+          <td class="m-ng" onclick="filterBy('unsureNg')"><b id="mUnsureNg">0</b><span>未習得</span></td></tr>
+      </table>
+      <p class="note" id="mNone" style="text-align:center"></p>
       <div class="save-state" id="saveState"></div>
     </div>
 
@@ -300,10 +339,7 @@
     </div>
 
     <h3 class="sec">📋 答え合わせと解説</h3>
-    <div class="filter-row">
-      <button class="tab-btn active" onclick="filterReview(false,this)">すべて</button>
-      <button class="tab-btn" onclick="filterReview(true,this)">間違えた問題のみ</button>
-    </div>
+    <div class="filter-row" id="filterRow"></div>
     <div id="reviewList"></div>
   </div>
 </main>
@@ -613,7 +649,7 @@ function startQuiz() {
   const pool = allQuestions.filter(q => selectedCats.has(catOf(q.minor)));
   if (!pool.length) { showError('setupError', '選択した分野に問題がありません．'); return; }
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  quiz = pool.slice(0, Math.min(questionCount, pool.length)).map(q => ({ q, selected: [] }));
+  quiz = pool.slice(0, Math.min(questionCount, pool.length)).map(q => ({ q, selected: [], conf: null }));
   currentIndex = 0;
   startedAt = new Date().toISOString();
   sessionId = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
@@ -628,7 +664,9 @@ function renderPalette() {
   quiz.forEach((it, i) => {
     const b = document.createElement('button');
     b.className = 'pal' + (it.selected.length ? ' done' : '') + (i === currentIndex ? ' current' : '');
-    b.textContent = i + 1;
+    const dot = it.conf === 'あり' ? 'var(--correct)' : it.conf === 'なし' ? 'var(--accent)' : 'transparent';
+    b.innerHTML = `${i + 1}<span class="dot" style="background:${dot}"></span>`;
+    b.style.lineHeight = '1';
     b.onclick = () => { currentIndex = i; renderQuestion(); };
     p.appendChild(b);
   });
@@ -671,6 +709,8 @@ function renderQuestion() {
     btn.onclick = () => selectChoice(num);
     box.appendChild(btn);
   });
+  $('confSure').classList.toggle('on', it.conf === 'あり');
+  $('confUnsure').classList.toggle('on', it.conf === 'なし');
   $('prevBtn').disabled = currentIndex === 0;
   $('nextBtn').disabled = currentIndex === quiz.length - 1;
   renderPalette();
@@ -688,6 +728,12 @@ function selectChoice(num) {
   renderQuestion();
 }
 
+function setConf(c) {
+  const it = quiz[currentIndex];
+  it.conf = it.conf === c ? null : c;
+  renderQuestion();
+}
+
 function move(d) {
   const i = currentIndex + d;
   if (i < 0 || i >= quiz.length) return;
@@ -697,7 +743,9 @@ function move(d) {
 function confirmFinish() {
   const blank = quiz.filter(it => !it.selected.length).length;
   const partial = quiz.filter(it => it.selected.length && it.selected.length < (it.q.answerCount || 1)).length;
+  const noConf = quiz.filter(it => it.selected.length && !it.conf).length;
   let msg = `全${quiz.length}問の解答を終了して採点する．<br>採点後は解答を変更できない．`;
+  if (noConf) msg = `<b style="color:var(--teal)">自信度を選んでいない問題が${noConf}問ある．</b><br>` + msg;
   if (blank) msg = `<b style="color:var(--wrong)">未回答が${blank}問ある．</b><br>未回答は不正解として記録される．<br>` + msg;
   if (partial) msg = `<b style="color:var(--accent)">選択数が足りない問題が${partial}問ある．</b><br>` + msg;
   $('modalMsg').innerHTML = msg;
@@ -714,7 +762,7 @@ async function submitQuiz() {
     const ans = [...it.q.answer].sort((a, b) => a - b);
     const skipped = sel.length === 0;
     const correct = !skipped && sel.length === ans.length && sel.every((v, i) => v === ans[i]);
-    return { q: it.q, selected: sel, correct, skipped };
+    return { q: it.q, selected: sel, correct, skipped, conf: it.conf };
   });
   showResult(results);
   await sendResults();
@@ -726,7 +774,7 @@ async function sendResults() {
   try {
     const r = await apiPost({
       action: 'submit', sid: user.sid, pass: user.pass || '', sessionId, startedAt,
-      items: quiz.map(it => ({ id: it.q.id, selected: it.selected }))
+      items: quiz.map(it => ({ id: it.q.id, selected: it.selected, conf: it.conf }))
     });
     if (!r.ok) throw new Error(r.error);
     lastSubmit = r;
@@ -737,8 +785,20 @@ async function sendResults() {
   }
 }
 
+const FILTERS = [
+  { key: 'all',      label: 'すべて',             test: r => true },
+  { key: 'wrong',    label: '間違えた問題',        test: r => !r.correct },
+  { key: 'sureNg',   label: '⚠️ 自信ありで不正解', test: r => r.conf === 'あり' && !r.correct },
+  { key: 'unsure',   label: '🤔 自信なしの問題',   test: r => r.conf === 'なし' },
+  { key: 'unsureOk', label: '自信なしで正解',      test: r => r.conf === 'なし' && r.correct },
+  { key: 'unsureNg', label: '自信なしで不正解',    test: r => r.conf === 'なし' && !r.correct },
+  { key: 'sureOk',   label: '自信ありで正解',      test: r => r.conf === 'あり' && r.correct },
+];
+let lastResults = [];
+
 function showResult(results) {
   showScreen('resultScreen');
+  lastResults = results;
   const total = results.length;
   const correct = results.filter(r => r.correct).length;
   const skipped = results.filter(r => r.skipped).length;
@@ -750,13 +810,34 @@ function showResult(results) {
   $('sSkip').textContent = skipped;
   $('scoreArc').style.strokeDashoffset = 2 * Math.PI * 52 * (1 - pct / 100);
 
+  const cnt = k => results.filter(FILTERS.find(f => f.key === k).test).length;
+  $('mSureOk').textContent = cnt('sureOk');
+  $('mSureNg').textContent = cnt('sureNg');
+  $('mUnsureOk').textContent = cnt('unsureOk');
+  $('mUnsureNg').textContent = cnt('unsureNg');
+  const none = results.filter(r => !r.conf).length;
+  $('mNone').textContent = none ? `自信度未選択：${none}問` : '';
+
+  const row = $('filterRow');
+  row.innerHTML = '';
+  FILTERS.forEach(f => {
+    const n = results.filter(f.test).length;
+    if (f.key !== 'all' && n === 0) return;
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn';
+    btn.dataset.key = f.key;
+    btn.textContent = `${f.label}（${n}）`;
+    btn.onclick = () => filterBy(f.key);
+    row.appendChild(btn);
+  });
+
   const list = $('reviewList');
   list.innerHTML = '';
   results.forEach((r, i) => {
     const q = r.q;
     const div = document.createElement('div');
     div.className = `review-item ${r.correct ? 'correct' : 'wrong'}`;
-    div.dataset.correct = r.correct ? '1' : '0';
+    div.dataset.idx = i;
     const items = q.choices.map((c, k) => {
       const n = k + 1, isAns = q.answer.includes(n), isSel = r.selected.includes(n);
       const cls = isAns ? 'ans' : isSel ? 'mis' : '';
@@ -765,29 +846,41 @@ function showResult(results) {
         : isSel ? '<span class="tag" style="color:var(--wrong)">あなたの解答</span>' : '';
       return `<li class="${cls}"><b>${n}.</b><span>${esc(c)}</span>${tag}</li>`;
     }).join('');
+    const confTag = r.conf === 'あり' ? '<span class="conf-tag sure">自信あり</span>'
+      : r.conf === 'なし' ? '<span class="conf-tag unsure">自信なし</span>'
+      : '<span class="conf-tag none">自信度なし</span>';
     div.innerHTML = `
       <div class="review-meta">
         <span>${r.correct ? '✅ 正解' : r.skipped ? '⏭️ 未回答' : '❌ 不正解'}</span>
+        ${confTag}
         <span style="font-size:0.78rem;color:var(--gray)">問${i + 1}</span>
         <span class="review-cat">${esc(q.major)} › ${esc(q.minor || '')}</span>
       </div>
       <p class="review-q">${esc(q.text)}</p>
       <img class="q-image hidden" alt="問題画像">
       <ul class="rv-choices">${items}</ul>
-      <details class="explanation" ${r.correct ? '' : 'open'}>
+      <details class="explanation" ${r.correct && r.conf !== 'なし' ? '' : 'open'}>
         <summary>📖 解説</summary><div>${esc(q.explanation || '解説は登録されていない．')}</div>
       </details>`;
     loadImage(div.querySelector('img'), q.imageId);
     list.appendChild(div);
   });
+  filterBy('all', true);
 }
 
-function filterReview(wrongOnly, btn) {
-  document.querySelectorAll('.filter-row .tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+function filterBy(key, noScroll) {
+  const f = FILTERS.find(x => x.key === key);
+  document.querySelectorAll('#filterRow .tab-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+  let shown = 0;
   document.querySelectorAll('#reviewList .review-item').forEach(d => {
-    d.classList.toggle('hidden', wrongOnly && d.dataset.correct === '1');
+    const ok = f.test(lastResults[+d.dataset.idx]);
+    d.classList.toggle('hidden', !ok);
+    if (ok) shown++;
   });
+  let empty = $('reviewEmpty');
+  if (!empty) { empty = document.createElement('div'); empty.id = 'reviewEmpty'; empty.className = 'empty'; $('reviewList').after(empty); }
+  empty.textContent = shown ? '' : '該当する問題はない．';
+  if (!noScroll) $('filterRow').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 boot();
