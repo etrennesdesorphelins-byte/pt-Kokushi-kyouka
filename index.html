@@ -44,9 +44,6 @@
   .all-btn { padding: 6px 16px; border-radius: 20px; border: 2px solid var(--mint); background: var(--white); font-size: 0.82rem; cursor: pointer; color: var(--teal); font-weight: 600; transition: all 0.2s; }
   .all-btn:hover { background: var(--mint); color: var(--white); }
 
-  .major-block { margin-bottom: 12px; }
-  .major-title { font-size: 0.8rem; font-weight: 700; color: var(--navy); margin: 6px 0; display: flex; align-items: center; gap: 8px; }
-  .major-title button { font-size: 0.7rem; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--white); color: var(--teal); cursor: pointer; }
   .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
   .cat-btn { padding: 9px 10px; border: 2px solid var(--border); border-radius: 9px; background: var(--white); font-size: 0.82rem; cursor: pointer; transition: all 0.2s; text-align: center; color: var(--dark); }
   .cat-btn small { opacity: 0.7; font-size: 0.7rem; }
@@ -218,8 +215,12 @@
         <div class="major-row">
           <button class="all-btn" onclick="selectAll()">すべて選択</button>
           <button class="all-btn" style="border-color:var(--gray);color:var(--gray)" onclick="clearAll()">すべてクリア</button>
+          <button class="major-btn" onclick="filterMajor('実地',this)">実地</button>
+          <button class="major-btn" onclick="filterMajor('基礎3',this)">基礎3</button>
+          <button class="major-btn" onclick="filterMajor('一般',this)">一般</button>
+          <button class="major-btn" onclick="filterMajor('臨床医学',this)">臨床医学</button>
         </div>
-        <div id="catTree"></div>
+        <div class="cat-grid" id="catGrid"></div>
       </div>
       <div class="form-group">
         <label>🔢 問題数</label>
@@ -322,6 +323,16 @@
 const GAS_BASE = 'https://script.google.com/macros/s/AKfycbx-1zsrIu4W_4DUnUsYaZERWiWz0YPR39pWiA4Q8GBGhnOWWnMb-FPydar07-RMoLMNXw/exec';
 
 const MAJOR_ORDER = ['実地', '基礎3', '一般', '臨床医学'];
+// 出題設定・分野別グラフで使う分野（旧アプリと同じ）．ここにない中項目は「その他」にまとめる
+const FIXED_CATEGORIES = {
+  '実地':   ['評価学','臨床運動学','脳血管障害','小児障害','義肢装具学','物理療法学','骨関節障害','脊髄障害','日常生活活動','神経筋障害','内部障害','運動療法学'],
+  '基礎3':  ['解剖学','生理学','運動学','病理学','神経内科学','臨床心理学','精神医学'],
+  '一般':   ['リハ医学・概論','一般内科学','整形外科学','人間発達学','理学療法概論'],
+  '臨床医学':['評価学','臨床運動学','脳血管障害','小児障害','義肢装具学','物理療法学','骨関節障害','脊髄障害','日常生活活動','神経筋障害','内部障害','運動療法学']
+};
+const OTHER = 'その他';
+const FIXED_SET = new Set(Object.values(FIXED_CATEGORIES).flat());
+const catOf = minor => FIXED_SET.has(minor) ? minor : OTHER;
 const STORE_USER = 'kyoka_user';
 const CACHE_KEY = 'kyoka_questions';
 const CACHE_TIME_KEY = 'kyoka_questions_time';
@@ -329,8 +340,7 @@ const CACHE_TTL = 6 * 60 * 60 * 1000; // 問題データのキャッシュ：6�
 
 let user = null;            // {sid, name, pass}
 let allQuestions = [];
-let tree = [];              // [{major, minors:[{minor, count}]}]
-let selectedCats = new Set(); // "大分野|小分野"
+let selectedCats = new Set(); // 小分野名（FIXED_CATEGORIES または「その他」）
 let questionCount = 10;
 let quiz = [];              // [{q, selected:[]}]
 let currentIndex = 0;
@@ -515,7 +525,7 @@ function renderFieldChart() {
   const agg = {};
   stats.fields.forEach(f => {
     if (fieldTab !== 'すべて' && f.major !== fieldTab) return;
-    const k = f.minor || '(未分類)';
+    const k = catOf(f.minor);
     agg[k] = agg[k] || { name: k, total: 0, correct: 0 };
     agg[k].total += f.total; agg[k].correct += f.correct;
   });
@@ -551,50 +561,40 @@ function sortMajors(list) {
   });
 }
 
-// ===== 出題設定（分野は問題データから自動生成）=====
+// ===== 出題設定（旧アプリと同じ分野ボタン＋「その他」）=====
 function buildTree() {
-  const map = {};
-  allQuestions.forEach(q => {
-    const mj = q.major || '(未分類)', mn = q.minor || '(未分類)';
-    map[mj] = map[mj] || {};
-    map[mj][mn] = (map[mj][mn] || 0) + 1;
-  });
-  tree = sortMajors(Object.keys(map)).map(mj => ({
-    major: mj,
-    minors: Object.keys(map[mj]).map(mn => ({ minor: mn, count: map[mj][mn] })).sort((a, b) => b.count - a.count)
-  }));
-  const root = $('catTree');
-  root.innerHTML = '';
-  tree.forEach(t => {
-    const block = document.createElement('div');
-    block.className = 'major-block';
-    const total = t.minors.reduce((s, m) => s + m.count, 0);
-    block.innerHTML = `<div class="major-title">${esc(t.major)}（${total}問）<button>この大分野を全選択</button></div><div class="cat-grid"></div>`;
-    block.querySelector('button').onclick = () => toggleMajor(t.major);
-    const grid = block.querySelector('.cat-grid');
-    t.minors.forEach(m => {
-      const key = t.major + '|' + m.minor;
-      const btn = document.createElement('button');
-      btn.className = 'cat-btn';
-      btn.dataset.key = key;
-      btn.innerHTML = `${esc(m.minor)} <small>${m.count}</small>`;
-      btn.onclick = () => { selectedCats.has(key) ? selectedCats.delete(key) : selectedCats.add(key); syncCats(); };
-      grid.appendChild(btn);
-    });
-    root.appendChild(block);
+  const counts = {};
+  allQuestions.forEach(q => { const c = catOf(q.minor); counts[c] = (counts[c] || 0) + 1; });
+  const cats = [...new Set(Object.values(FIXED_CATEGORIES).flat())].filter(c => counts[c]);
+  if (counts[OTHER]) cats.push(OTHER);
+  const grid = $('catGrid');
+  grid.innerHTML = '';
+  cats.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.dataset.cat = cat;
+    btn.innerHTML = `${esc(cat)} <small>${counts[cat]}</small>`;
+    btn.onclick = () => {
+      selectedCats.has(cat) ? selectedCats.delete(cat) : selectedCats.add(cat);
+      clearMajorActive(); syncCats();
+    };
+    grid.appendChild(btn);
   });
 }
 function syncCats() {
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('selected', selectedCats.has(b.dataset.key)));
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('selected', selectedCats.has(b.dataset.cat)));
 }
-function toggleMajor(major) {
-  const keys = [...document.querySelectorAll('.cat-btn')].map(b => b.dataset.key).filter(k => k.startsWith(major + '|'));
-  const allOn = keys.every(k => selectedCats.has(k));
-  keys.forEach(k => allOn ? selectedCats.delete(k) : selectedCats.add(k));
+function clearMajorActive() { document.querySelectorAll('.major-btn').forEach(b => b.classList.remove('active')); }
+function selectAll() { document.querySelectorAll('.cat-btn').forEach(b => selectedCats.add(b.dataset.cat)); clearMajorActive(); syncCats(); }
+function clearAll() { selectedCats.clear(); clearMajorActive(); syncCats(); }
+function filterMajor(major, el) {
+  const isActive = el.classList.contains('active');
+  clearMajorActive();
+  if (isActive) { selectAll(); return; }
+  el.classList.add('active');
+  selectedCats = new Set(FIXED_CATEGORIES[major] || []);
   syncCats();
 }
-function selectAll() { document.querySelectorAll('.cat-btn').forEach(b => selectedCats.add(b.dataset.key)); syncCats(); }
-function clearAll() { selectedCats.clear(); syncCats(); }
 function setCount(n, btn) {
   questionCount = n;
   document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('selected'));
@@ -610,7 +610,7 @@ function setCustomCount(input) {
 function startQuiz() {
   $('setupError').classList.add('hidden');
   if (!selectedCats.size) { showError('setupError', '分野を1つ以上選択してください．'); return; }
-  const pool = allQuestions.filter(q => selectedCats.has((q.major || '(未分類)') + '|' + (q.minor || '(未分類)')));
+  const pool = allQuestions.filter(q => selectedCats.has(catOf(q.minor)));
   if (!pool.length) { showError('setupError', '選択した分野に問題がありません．'); return; }
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   quiz = pool.slice(0, Math.min(questionCount, pool.length)).map(q => ({ q, selected: [] }));
