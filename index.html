@@ -347,10 +347,10 @@
         <div class="major-row">
           <button class="all-btn" onclick="selectAll()">すべて選択</button>
           <button class="all-btn" style="border-color:var(--gray);color:var(--gray)" onclick="clearAll()">すべてクリア</button>
-          <button class="major-btn" onclick="filterMajor('実地',this)">実地</button>
-          <button class="major-btn" onclick="filterMajor('基礎3',this)">基礎3</button>
-          <button class="major-btn" onclick="filterMajor('一般',this)">一般</button>
-          <button class="major-btn" onclick="filterMajor('臨床医学',this)">臨床医学</button>
+          <button class="major-btn" onclick="filterMajor('実地')">実地</button>
+          <button class="major-btn" onclick="filterMajor('基礎3')">基礎3</button>
+          <button class="major-btn" onclick="filterMajor('一般')">一般</button>
+          <button class="major-btn" onclick="filterMajor('臨床医学')">臨床医学</button>
         </div>
         <div class="cat-grid" id="catGrid"></div>
       </div>
@@ -955,12 +955,19 @@ function sortMajors(list) {
   });
 }
 
-// ===== 出題設定（旧アプリと同じ分野ボタン＋「その他」）=====
+// ===== 出題設定 =====
+// 大分野ボタン（実地・基礎3・一般・臨床医学）は，問題シートJ列「分野」で絞り込む．
+// 大分野を選ぶと，その大分野に含まれる小分野だけが下に表示される．
+let activeMajor = null;
 function buildTree() {
   const counts = {};
-  allQuestions.forEach(q => { const c = catOf(q.minor); counts[c] = (counts[c] || 0) + 1; });
+  allQuestions.forEach(q => {
+    if (activeMajor && q.major !== activeMajor) return;
+    const c = catOf(q.minor); counts[c] = (counts[c] || 0) + 1;
+  });
   const cats = [...new Set(Object.values(FIXED_CATEGORIES).flat())].filter(c => counts[c]);
   if (counts[OTHER]) cats.push(OTHER);
+  [...selectedCats].forEach(c => { if (!counts[c]) selectedCats.delete(c); });
   const grid = $('catGrid');
   grid.innerHTML = '';
   cats.forEach(cat => {
@@ -970,24 +977,24 @@ function buildTree() {
     btn.innerHTML = `${esc(cat)} <small>${counts[cat]}</small>`;
     btn.onclick = () => {
       selectedCats.has(cat) ? selectedCats.delete(cat) : selectedCats.add(cat);
-      clearMajorActive(); syncCats();
+      syncCats();
     };
     grid.appendChild(btn);
   });
+  document.querySelectorAll('.major-btn').forEach(b => b.classList.toggle('active', b.textContent === activeMajor));
+  syncCats();
 }
 function syncCats() {
   document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('selected', selectedCats.has(b.dataset.cat)));
 }
-function clearMajorActive() { document.querySelectorAll('.major-btn').forEach(b => b.classList.remove('active')); }
-function selectAll() { document.querySelectorAll('.cat-btn').forEach(b => selectedCats.add(b.dataset.cat)); clearMajorActive(); syncCats(); }
-function clearAll() { selectedCats.clear(); clearMajorActive(); syncCats(); }
-function filterMajor(major, el) {
-  const isActive = el.classList.contains('active');
-  clearMajorActive();
-  if (isActive) { selectAll(); return; }
-  el.classList.add('active');
-  selectedCats = new Set(FIXED_CATEGORIES[major] || []);
-  syncCats();
+function selectAll() { document.querySelectorAll('.cat-btn').forEach(b => selectedCats.add(b.dataset.cat)); syncCats(); }
+function clearAll() { selectedCats.clear(); activeMajor = null; buildTree(); }
+function filterMajor(major) {
+  if (activeMajor === major) { activeMajor = null; selectedCats.clear(); buildTree(); return; }
+  activeMajor = major;
+  selectedCats.clear();
+  buildTree();
+  selectAll();   // 大分野を選んだら，その大分野の小分野をすべて選択した状態にする
 }
 function setCount(n, btn) {
   questionCount = n;
@@ -1004,7 +1011,7 @@ function setCustomCount(input) {
 function startQuiz() {
   $('setupError').classList.add('hidden');
   if (!selectedCats.size) { showError('setupError', '分野を1つ以上選択してください．'); return; }
-  const pool = allQuestions.filter(q => selectedCats.has(catOf(q.minor)));
+  const pool = allQuestions.filter(q => selectedCats.has(catOf(q.minor)) && (!activeMajor || q.major === activeMajor));
   if (!pool.length) { showError('setupError', '選択した分野に問題がありません．'); return; }
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   quiz = pool.slice(0, Math.min(questionCount, pool.length)).map(q => ({ q, selected: [], conf: null }));
