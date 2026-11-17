@@ -253,7 +253,7 @@
     <div class="card">
       <h2>👥 学生一覧</h2>
       <div class="t-actions">
-        <label class="chk hidden" id="tMineWrap"><input type="checkbox" id="tMineOnly" onchange="renderOverview()"> 担当学生のみ</label>
+        <label class="chk hidden" id="tMineWrap"><input type="checkbox" id="tMineOnly" onchange="renderOverview(); renderFieldArea()"> 担当学生のみ</label>
         <span class="note" id="tAsOf"></span>
         <button class="all-btn" style="margin-left:auto" onclick="loadOverview()">↻ 更新</button>
       </div>
@@ -261,10 +261,14 @@
       <p class="note" style="margin-top:8px">行を押すとその学生の詳細を表示．見出しを押すと並べ替え．赤い行は直近7日間に学習記録がない学生．</p>
     </div>
     <div class="card">
-      <h2>📊 分野別の正答率（全学生の累計）</h2>
-      <div class="major-row" id="cFieldTabs"></div>
-      <div id="cFieldBox" style="position:relative"><canvas id="cFieldChart"></canvas></div>
-      <div class="empty hidden" id="cFieldEmpty">記録がない．</div>
+      <h2 id="cFieldTitle">📊 分野別の正答率（全学生の累計）</h2>
+      <div id="cFieldAll">
+        <div class="major-row" id="cFieldTabs"></div>
+        <div id="cFieldBox" style="position:relative"><canvas id="cFieldChart"></canvas></div>
+        <div class="empty hidden" id="cFieldEmpty">記録がない．</div>
+        <p class="note" style="margin-top:8px" id="cFieldNote"></p>
+      </div>
+      <div id="cFieldMine" class="hidden"></div>
     </div>
     <div class="card">
       <h2>📨 週次レポート</h2>
@@ -800,10 +804,36 @@ async function loadOverview() {
     const [, m, d] = r.today.split('-');
     $('tAsOf').textContent = `${+m}/${+d} 時点・${r.students.length}名`;
     renderOverview();
-    drawFieldSection('c', r.fields);
+    renderFieldArea();
   } catch (err) {
     $('tTable').innerHTML = `<tr><td><div class="error-msg">${esc(err.message)}</div></td></tr>`;
   }
+}
+
+// 分野別の正答率：通常は全学生（集計除外を除く）の累計，「担当学生のみ」なら学生ごとに表示
+function renderFieldArea() {
+  const mineOnly = $('tMineOnly').checked;
+  $('cFieldAll').classList.toggle('hidden', mineOnly);
+  $('cFieldMine').classList.toggle('hidden', !mineOnly);
+  if (!mineOnly) {
+    $('cFieldTitle').textContent = '📊 分野別の正答率（全学生の累計）';
+    const ex = overview.students.filter(s => s.exclude).length;
+    $('cFieldNote').textContent = ex ? `学生名簿で「集計除外」にした${ex}名（体験用アカウントなど）は含まない．` : '';
+    drawFieldSection('c', overview.fields);
+    return;
+  }
+  $('cFieldTitle').textContent = '📊 分野別の正答率（担当学生ごとの累計）';
+  const mine = overview.students.filter(s => s.teacher === teacher.name);
+  const box = $('cFieldMine');
+  Object.keys(charts).filter(k => /^m\d+FieldChart$/.test(k)).forEach(k => { charts[k].destroy(); delete charts[k]; });
+  box.innerHTML = mine.map((s, i) => `
+    <div style="margin-bottom:22px">
+      <h3 class="sec">${esc(s.name)}（${esc(s.sid)}）　累計 ${s.total}問・正答率 ${s.total ? Math.round(s.correct / s.total * 100) + '%' : '–'}</h3>
+      <div class="major-row" id="m${i}FieldTabs"></div>
+      <div id="m${i}FieldBox" style="position:relative"><canvas id="m${i}FieldChart"></canvas></div>
+      <div class="empty hidden" id="m${i}FieldEmpty">まだ解答記録がない．</div>
+    </div>`).join('') || '<div class="empty">担当学生がいない．</div>';
+  mine.forEach((s, i) => drawFieldSection('m' + i, s.fields));
 }
 
 const T_COLS = [
@@ -831,15 +861,16 @@ function renderOverview() {
     if (x === null || x === '') return 1; if (y === null || y === '') return -1;
     return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'ja')) * dir;
   });
-  const fmt = (c, v) => v === null || v === '' ? '–'
+  const fmt = (c, v, s) => v === null || v === '' ? '–'
     : c.key.endsWith('rate') ? v + '%'
     : c.key === 'diff' ? `<span style="color:${v >= 0 ? 'var(--correct)' : 'var(--wrong)'}">${v >= 0 ? '+' : ''}${v}</span>`
     : c.key === 'lastDate' ? v.slice(5).replace('-', '/')
-    : c.key === 'sureNg7' && v > 0 ? `<b style="color:var(--wrong)">${v}</b>` : esc(v);
+    : c.key === 'sureNg7' && v > 0 ? `<b style="color:var(--wrong)">${v}</b>`
+    : c.key === 'name' && s.exclude ? `${esc(v)} <span class="conf-tag none">集計除外</span>` : esc(v);
   $('tTable').innerHTML =
     '<tr>' + T_COLS.map(c => `<th class="${c.num ? 'n' : ''} ${tSort.key === c.key ? 'sorted' + (tSort.asc ? ' asc' : '') : ''}" onclick="sortOverview('${c.key}')">${c.label}</th>`).join('') + '</tr>' +
     (rows.length ? rows.map(s => `<tr class="row ${s.w7 ? '' : 'inactive'}" onclick="openStudent('${esc(s.sid)}')">` +
-      T_COLS.map(c => `<td class="${c.num ? 'n' : ''}">${fmt(c, s[c.key])}</td>`).join('') + '</tr>').join('')
+      T_COLS.map(c => `<td class="${c.num ? 'n' : ''}">${fmt(c, s[c.key], s)}</td>`).join('') + '</tr>').join('')
       : `<tr><td colspan="${T_COLS.length}" class="empty">学生名簿に学生が登録されていない．</td></tr>`);
 }
 function sortOverview(key) {
