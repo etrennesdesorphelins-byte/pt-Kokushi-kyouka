@@ -20,6 +20,8 @@
   .icon-circle { width: 42px; height: 42px; background: var(--mint); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
   header h1 { font-size: 1.15rem; font-weight: 700; }
   header p { font-size: 0.78rem; opacity: 0.8; }
+  header p.data-info { font-size: 0.72rem; opacity: 0.95; margin-top: 2px; color: #CFF5EA; }
+  header p.data-info span { display: inline-block; white-space: nowrap; margin-right: 12px; }
   .user-box { margin-left: auto; text-align: right; font-size: 0.8rem; }
   .user-box button { margin-top: 3px; background: transparent; border: 1px solid rgba(255,255,255,0.6); color: var(--white); border-radius: 14px; padding: 2px 10px; font-size: 0.72rem; cursor: pointer; }
 
@@ -209,6 +211,7 @@
   <div>
     <h1>PT国試 強化組　Web問題演習</h1>
     <p>理学療法士国家試験　学習支援システム</p>
+    <p class="data-info" id="dataInfo"></p>
   </div>
   <div class="user-box hidden" id="userBox">
     <div id="userName"></div>
@@ -555,6 +558,7 @@ async function boot() {
     return;
   }
   buildTree();
+  renderDataInfo();
   try { teacher = JSON.parse(localStorage.getItem(STORE_TEACHER) || 'null'); } catch (e) { teacher = null; }
   if (teacher) { setTeacherBox(); loadOverview(); }
   else if (user) { setUserBox(); goHome(); }
@@ -591,11 +595,31 @@ async function loadQuestions(serverVer) {
   return true;
 }
 
+// 収録範囲（第○回〜第○回）・問題数・問題データの更新日時をヘッダーに表示する
+function renderDataInfo() {
+  const years = new Set();
+  allQuestions.forEach(q => {
+    const m = String(q.text || '').match(/第\s*(\d+)\s*回/);
+    if (m) years.add(Number(m[1]));
+  });
+  const ys = [...years].sort((a, b) => a - b);
+  const range = ys.length ? `第${ys[0]}回〜第${ys[ys.length - 1]}回（${ys.length}回分・${allQuestions.length}問）`
+                          : `${allQuestions.length}問`;
+  let updated = '';
+  const v = localStorage.getItem(CACHE_VER_KEY) || '';
+  const d = v ? new Date(v) : null;
+  if (d && !isNaN(d)) {
+    const p2 = n => String(n).padStart(2, '0');
+    updated = `問題更新：${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  }
+  $('dataInfo').innerHTML = `<span>収録：${esc(range)}</span>` + (updated ? `<span>${esc(updated)}</span>` : '');
+}
+
 // マイページを開いたときに問題データの更新を確認し，更新されていれば読み込み直す
 async function refreshQuestionsIfUpdated(qVersion) {
   if (!qVersion || qVersion === (localStorage.getItem(CACHE_VER_KEY) || '')) return;
   try {
-    if (await loadQuestions(qVersion)) { buildTree(); syncCats(); }
+    if (await loadQuestions(qVersion)) { buildTree(); syncCats(); renderDataInfo(); }
   } catch (e) { /* 失敗しても今のデータで続ける */ }
 }
 
