@@ -496,7 +496,8 @@ const catOf = minor => FIXED_SET.has(minor) ? minor : OTHER;
 const STORE_USER = 'kyoka_user';
 const CACHE_KEY = 'kyoka_questions';
 const CACHE_TIME_KEY = 'kyoka_questions_time';
-const CACHE_TTL = 6 * 60 * 60 * 1000; // 問題データのキャッシュ：6時間
+const CACHE_VER_KEY = 'kyoka_questions_ver';
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 更新日時を確認できないときの予備：24時間
 
 let user = null;            // {sid, name, pass}
 let allQuestions = [];
@@ -560,13 +561,23 @@ async function boot() {
   else showScreen('loginScreen');
 }
 
-async function loadQuestions() {
+// 問題データの読み込み．GASの更新日時（exportQuestionsToJson の実行時刻）と
+// 端末に保存した日時が同じなら保存データを使い，違えば新しく取得する
+async function loadQuestions(serverVer) {
+  if (serverVer === undefined) {
+    try {
+      const v = await apiGet({ action: 'getVersion' });
+      serverVer = v.ok ? (v.version || null) : null;
+    } catch (e) { serverVer = null; }   // 通信できないときは保存データを使う
+  }
   try {
-    const t = Number(localStorage.getItem(CACHE_TIME_KEY) || 0);
     const cached = localStorage.getItem(CACHE_KEY);
-    if (cached && Date.now() - t < CACHE_TTL) {
+    const cachedVer = localStorage.getItem(CACHE_VER_KEY) || '';
+    const t = Number(localStorage.getItem(CACHE_TIME_KEY) || 0);
+    const fresh = serverVer ? cachedVer === serverVer : Date.now() - t < CACHE_TTL;
+    if (cached && fresh) {
       allQuestions = JSON.parse(cached);
-      if (allQuestions.length) return;
+      if (allQuestions.length) return false;
     }
   } catch (e) {}
   const data = await apiGet({ action: 'getQuestions' });
@@ -575,7 +586,17 @@ async function loadQuestions() {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(allQuestions));
     localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
+    localStorage.setItem(CACHE_VER_KEY, data.updatedAt || serverVer || '');
   } catch (e) { /* 容量超過時は無視 */ }
+  return true;
+}
+
+// マイページを開いたときに問題データの更新を確認し，更新されていれば読み込み直す
+async function refreshQuestionsIfUpdated(qVersion) {
+  if (!qVersion || qVersion === (localStorage.getItem(CACHE_VER_KEY) || '')) return;
+  try {
+    if (await loadQuestions(qVersion)) { buildTree(); syncCats(); }
+  } catch (e) { /* 失敗しても今のデータで続ける */ }
 }
 
 // ===== ログイン =====
@@ -631,6 +652,7 @@ async function goHome() {
       throw new Error(r.error);
     }
     stats = r;
+    refreshQuestionsIfUpdated(r.qVersion);
     renderDashboard();
   } catch (err) {
     $('dailyEmpty').textContent = '成績を読み込めませんでした：' + err.message;
