@@ -413,6 +413,15 @@
         <div class="cat-grid" id="catGrid"></div>
       </div>
       <div class="form-group">
+        <label>🗂 出題する問題</label>
+        <div class="note-opt" id="qFilterBox">
+          <label><input type="radio" name="qFilter" value="all" checked onchange="buildTree()">すべての問題</label>
+          <label><input type="radio" name="qFilter" value="new" onchange="buildTree()">まだ解いていない問題のみ</label>
+          <label><input type="radio" name="qFilter" value="wrong" onchange="buildTree()">間違えたままの問題のみ<small>直近の解答が不正解・未回答の問題</small></label>
+        </div>
+        <p class="note" id="qFilterNote"></p>
+      </div>
+      <div class="form-group">
         <label>🔢 問題数</label>
         <div class="count-row">
           <button class="count-btn" onclick="setCount(5,this)">5問</button>
@@ -734,6 +743,7 @@ function logout() {
   localStorage.removeItem(STORE_USER);
   localStorage.removeItem(STORE_TEACHER);
   user = null; stats = null; teacher = null; overview = null;
+  answeredSet = new Set(); wrongSet = new Set(); historyLoaded = false;
   $('userBox').classList.add('hidden');
   $('sidInput').value = ''; $('passInput').value = '';
   $('passInput').classList.add('hidden');
@@ -750,6 +760,10 @@ async function goHome() {
       throw new Error(r.error);
     }
     stats = r;
+    answeredSet = new Set((r.answered || []).map(String));
+    wrongSet = new Set((r.wrongLatest || []).map(String));
+    historyLoaded = true;
+    buildTree();
     refreshQuestionsIfUpdated(r.qVersion);
     renderDashboard();
   } catch (err) {
@@ -1057,10 +1071,23 @@ function sortMajors(list) {
 // 大分野ボタン（実地・基礎3・一般・臨床医学）は，問題シートJ列「分野」で絞り込む．
 // 大分野を選ぶと，その大分野に含まれる小分野だけが下に表示される．
 let activeMajor = null;
+function qFilterValue() { const el = document.querySelector('input[name="qFilter"]:checked'); return el ? el.value : 'all'; }
+function passHistoryFilter(q) {
+  const f = qFilterValue();
+  if (f === 'new') return !answeredSet.has(q.id);
+  if (f === 'wrong') return wrongSet.has(q.id);
+  return true;
+}
 function buildTree() {
+  const f = qFilterValue();
+  if ($('qFilterNote')) {
+    $('qFilterNote').textContent = f === 'all' ? '' : !historyLoaded ? '解答履歴を読み込み中…（マイページを開くと読み込まれる）'
+      : f === 'new' ? `これまでに解いた ${answeredSet.size}問を除いて出題する．` : `間違えたままの問題は ${wrongSet.size}問ある．`;
+  }
   const counts = {};
   allQuestions.forEach(q => {
     if (activeMajor && q.major !== activeMajor) return;
+    if (!passHistoryFilter(q)) return;
     const c = catOf(q.minor); counts[c] = (counts[c] || 0) + 1;
   });
   const cats = [...new Set(Object.values(FIXED_CATEGORIES).flat())].filter(c => counts[c]);
@@ -1109,8 +1136,12 @@ function setCustomCount(input) {
 function startQuiz() {
   $('setupError').classList.add('hidden');
   if (!selectedCats.size) { showError('setupError', '分野を1つ以上選択してください．'); return; }
-  const pool = allQuestions.filter(q => selectedCats.has(catOf(q.minor)) && (!activeMajor || q.major === activeMajor));
-  if (!pool.length) { showError('setupError', '選択した分野に問題がありません．'); return; }
+  const pool = allQuestions.filter(q => selectedCats.has(catOf(q.minor)) && (!activeMajor || q.major === activeMajor) && passHistoryFilter(q));
+  if (!pool.length) {
+    const f = qFilterValue();
+    showError('setupError', f === 'new' ? '選択した分野に，まだ解いていない問題はない．' : f === 'wrong' ? '選択した分野に，間違えたままの問題はない．' : '選択した分野に問題がありません．');
+    return;
+  }
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   quiz = pool.slice(0, Math.min(questionCount, pool.length)).map(q => ({ q, selected: [], conf: null }));
   currentIndex = 0;
@@ -1244,6 +1275,13 @@ window.addEventListener('beforeunload', e => {
 // ===== 採点・記録 =====
 async function submitQuiz() {
   quizMeta.end = new Date();
+  quiz.forEach(it => {
+    const sel = [...it.selected].sort((a, b) => a - b), ans = [...it.q.answer].sort((a, b) => a - b);
+    const ok = sel.length > 0 && sel.length === ans.length && sel.every((v, i) => v === ans[i]);
+    answeredSet.add(it.q.id);
+    ok ? wrongSet.delete(it.q.id) : wrongSet.add(it.q.id);
+  });
+  buildTree();
   // 画面表示用の採点（記録はサーバー側で改めて採点）
   const results = quiz.map(it => {
     const sel = [...it.selected].sort((a, b) => a - b);
@@ -1284,6 +1322,7 @@ const FILTERS = [
 ];
 let lastResults = [];
 let quizMeta = {};
+let answeredSet = new Set(), wrongSet = new Set(), historyLoaded = false;   // 解答履歴（出題の絞り込み用）
 
 function showResult(results) {
   showScreen('resultScreen');
