@@ -129,6 +129,8 @@
   .btn-secondary { background: var(--light); color: var(--navy); border: 2px solid var(--border); }
   .btn-accent { background: var(--accent); color: var(--white); }
   .btn-accent:hover { background: #D4890A; }
+  .btn-danger { background: var(--wrong); color: var(--white); }
+  .btn-danger:hover { background: #B91C1C; }
 
   .modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,0.45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
   .modal { background: var(--white); border-radius: 14px; padding: 22px; max-width: 380px; width: 100%; text-align: center; }
@@ -202,6 +204,65 @@
     .tile-val { font-size: 1.2rem; }
     header h1 { font-size: 1rem; }
   }
+
+  /* 学習ノート出力パネル（画面用） */
+  .note-panel { background: var(--white); border: 2px solid var(--teal); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; }
+  .note-panel h3 { font-size: 1rem; color: var(--navy); margin-bottom: 10px; }
+  .note-opt { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .note-opt label { flex: 1; min-width: 150px; border: 2px solid var(--border); border-radius: 10px; padding: 8px 10px; cursor: pointer; font-size: 0.85rem; }
+  .note-opt label small { display: block; color: var(--gray); font-size: 0.72rem; }
+  .note-opt input { margin-right: 6px; }
+  .note-opt label:has(input:checked) { border-color: var(--teal); background: var(--light); }
+  #noteArea { display: none; }
+
+  /* 学習ノート（印刷用） */
+  @media print {
+    @page { size: A4; margin: 10mm; }
+    html, body { background: #fff !important; }
+    body > *:not(#noteArea) { display: none !important; }
+    #noteArea { display: block !important; }
+  }
+  #noteArea { font-family: "Hiragino Sans","Noto Sans JP",sans-serif; color: #1E293B; font-size: 8pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #noteArea * { box-sizing: border-box; }
+  .nt-page { height: 270mm; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .nt-page:last-child { page-break-after: auto; break-after: auto; }
+  .nt-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #065A82; padding-bottom: 5px; }
+  .nt-head h1 { font-size: 16pt; color: #065A82; margin: 0; }
+  .nt-meta { font-size: 8.4pt; color: #475569; text-align: right; }
+  .nt-sum { display: flex; gap: 8px; margin: 9px 0 6px; }
+  .nt-tile { flex: 1; background: #F4F8FB; border-radius: 8px; padding: 6px; text-align: center; }
+  .nt-tile b { display: block; font-size: 14pt; color: #065A82; } .nt-tile span { font-size: 7.6pt; color: #64748B; }
+  .nt-flex { display: flex; gap: 10px; align-items: flex-start; }
+  .nt-mx { border-collapse: separate; border-spacing: 4px; width: 58%; }
+  .nt-mx th { font-size: 7.6pt; color: #64748B; font-weight: 600; }
+  .nt-mx td { text-align: center; border-radius: 6px; padding: 4px; font-size: 7.6pt; }
+  .nt-mx td b { font-size: 12pt; display: block; }
+  .nt-order { flex: 1; font-size: 8pt; background: #F8FAFC; border-radius: 8px; padding: 6px 10px; }
+  .nt-order ol { margin: 4px 0 0 18px; padding: 0; }
+  .nt-howto { font-size: 7.6pt; color: #64748B; margin: 5px 0 8px; }
+  .nt-ctop { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; border-bottom: 2px solid #065A82; padding-bottom: 4px; margin-bottom: 5px; }
+  .nt-qno { background: #065A82; color: #fff; border-radius: 5px; padding: 0 8px; font-weight: 700; font-size: 9pt; }
+  .nt-src { font-size: 7.8pt; color: #475569; }
+  .nt-tag { font-size: 7.4pt; font-weight: 700; border-radius: 10px; padding: 0 7px; }
+  .nt-ok { background: #DCFCE7; color: #16A34A; } .nt-ng { background: #FEE2E2; color: #DC2626; }
+  .nt-cy { background: #E0F2FE; color: #0369A1; } .nt-cn { background: #FEF3C7; color: #B77900; } .nt-c0 { background: #F1F5F9; color: #64748B; }
+  .nt-qa { display: flex; gap: 8px; } .nt-qa .l { flex: 1.15; } .nt-qa .r { flex: 1; }
+  .nt-qtext { font-size: 7.8pt; margin: 0 0 3px; white-space: pre-wrap; }
+  .nt-qimg { max-width: 100%; max-height: 38mm; display: block; margin: 2px auto 0; border: 1px solid #E2E8F0; }
+  .nt-half .nt-qimg { max-height: 34mm; }
+  .nt-ch { margin: 0; padding: 0; list-style: none; font-size: 7.6pt; }
+  .nt-ch li { display: flex; gap: 4px; padding: 1px 5px; border-radius: 4px; margin-bottom: 1.5px; border: 1px solid #E2E8F0; }
+  .nt-ch li.ans { background: #F0FDF4; border-color: #86EFAC; } .nt-ch li.mis { background: #FEF2F2; border-color: #FCA5A5; }
+  .nt-ch .m { margin-left: auto; font-size: 7pt; font-weight: 700; white-space: nowrap; }
+  .nt-exp { background: #FFFBEB; border-left: 3px solid #F0A500; padding: 4px 8px; border-radius: 0 5px 5px 0; font-size: 6.9pt; line-height: 1.4; white-space: pre-wrap; column-count: 2; column-gap: 10px; margin-top: 5px; }
+  .nt-exp b { color: #B77900; }
+  .nt-why { font-size: 7.6pt; margin: 5px 0 3px; } .nt-why span { margin-right: 10px; white-space: nowrap; }
+  .nt-memo { flex: 1; border: 1.5px solid #94A3B8; border-radius: 8px; padding: 4px 10px 6px; display: flex; flex-direction: column; margin-top: 3px; min-height: 0; }
+  .nt-memo .t { font-size: 8pt; color: #065A82; font-weight: 700; margin-bottom: 2px; } .nt-memo .t small { font-weight: 400; color: #64748B; }
+  .nt-ruled { flex: 1; display: flex; flex-direction: column; } .nt-ruled div { flex: 1; border-bottom: 0.6pt solid #CBD5E1; }
+  .nt-half { height: 131mm; display: flex; flex-direction: column; padding-bottom: 3mm; }
+  .nt-half + .nt-half { border-top: 1.5px dashed #94A3B8; padding-top: 3mm; }
+  .nt-foot { font-size: 6.8pt; color: #94A3B8; text-align: right; margin-top: auto; padding-top: 2px; }
 </style>
 </head>
 <body>
@@ -406,6 +467,9 @@
     <div class="nav-btns">
       <button class="nav-btn btn-accent" onclick="confirmFinish()">✅ 解答を終了して採点する</button>
     </div>
+    <div class="nav-btns">
+      <button class="nav-btn btn-secondary" style="font-size:0.85rem" onclick="confirmQuit()">🏠 演習を中断してマイページに戻る</button>
+    </div>
   </div>
 
   <!-- Result -->
@@ -449,11 +513,27 @@
       <button class="nav-btn btn-primary" onclick="showScreen('setupScreen')">続けて演習 →</button>
     </div>
 
+    <div class="note-panel">
+      <h3>📝 学習ノートを出力（PDF）</h3>
+      <div class="note-opt">
+        <label><input type="radio" name="noteType" value="full" checked>解説あり（1問1ページ）<small>問題・正答・解説＋ページ下半分のメモ欄</small></label>
+        <label><input type="radio" name="noteType" value="compact">解説なし（1ページ2問）<small>問題・正答＋各問のメモ欄</small></label>
+      </div>
+      <div class="note-opt">
+        <label><input type="radio" name="noteRange" value="all" checked>全問</label>
+        <label><input type="radio" name="noteRange" value="weak">不正解と自信なしの問題のみ</label>
+      </div>
+      <button class="start-btn" id="noteBtn" onclick="printNote()">学習ノートを出力する</button>
+      <div id="noteMsg"></div>
+      <p class="note" style="margin-top:8px">印刷画面が開くので，PDFとして保存する．iPadでは印刷画面右上の共有ボタン →「"ファイル"に保存」でPDFになる．パソコンでは送信先（プリンタ）を「PDFに保存」にする．</p>
+    </div>
+
     <h3 class="sec">📋 答え合わせと解説</h3>
     <div class="filter-row" id="filterRow"></div>
     <div id="reviewList"></div>
   </div>
 </main>
+<div id="noteArea"></div>
 
 <div class="modal-bg hidden" id="sendModal">
   <div class="modal" style="text-align:left">
@@ -1041,6 +1121,12 @@ function startQuiz() {
   quiz = pool.slice(0, Math.min(questionCount, pool.length)).map(q => ({ q, selected: [], conf: null }));
   currentIndex = 0;
   startedAt = new Date().toISOString();
+  const cats = [...selectedCats];
+  const allCats = [...document.querySelectorAll('.cat-btn')].map(b => b.dataset.cat);
+  quizMeta = {
+    start: new Date(), end: null,
+    scope: `${activeMajor || '全大分野'}（${cats.length === allCats.length ? '全小分野' : cats.slice(0, 4).join('・') + (cats.length > 4 ? ` ほか${cats.length - 4}分野` : '')}）・ランダム${quiz.length}問`
+  };
   sessionId = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
   lastSubmit = null;
   showScreen('quizScreen');
@@ -1137,14 +1223,33 @@ function confirmFinish() {
   if (noConf) msg = `<b style="color:var(--teal)">自信度を選んでいない問題が${noConf}問ある．</b><br>` + msg;
   if (blank) msg = `<b style="color:var(--wrong)">未回答が${blank}問ある．</b><br>未回答は不正解として記録される．<br>` + msg;
   if (partial) msg = `<b style="color:var(--accent)">選択数が足りない問題が${partial}問ある．</b><br>` + msg;
+  openModal(msg, '採点する', 'btn-accent', () => { closeModal(); submitQuiz(); });
+}
+function openModal(msg, okText, okClass, onOk) {
   $('modalMsg').innerHTML = msg;
-  $('modalOk').onclick = () => { closeModal(); submitQuiz(); };
+  $('modalOk').textContent = okText;
+  $('modalOk').className = 'nav-btn ' + okClass;
+  $('modalOk').onclick = onOk;
   $('modal').classList.remove('hidden');
 }
 function closeModal() { $('modal').classList.add('hidden'); }
 
+// 演習の途中でマイページに戻る（採点前なので記録されないことを警告する）
+function confirmQuit() {
+  const done = quiz.filter(it => it.selected.length).length;
+  const msg = `演習を中断してマイページに戻る．<br><b style="color:var(--wrong)">採点前に戻ると，この演習の解答（${done}／${quiz.length}問）は記録されず，成績やグラフにも反映されない．</b><br>記録したい場合は「戻る」を押し，「解答を終了して採点する」から採点してほしい．`;
+  openModal(msg, '中断して戻る', 'btn-danger', () => { closeModal(); quiz = []; goHome(); });
+}
+// 演習中にページを閉じる・再読み込みする場合も確認する
+window.addEventListener('beforeunload', e => {
+  if (!$('quizScreen').classList.contains('hidden') && quiz.some(it => it.selected.length)) {
+    e.preventDefault(); e.returnValue = '';
+  }
+});
+
 // ===== 採点・記録 =====
 async function submitQuiz() {
+  quizMeta.end = new Date();
   // 画面表示用の採点（記録はサーバー側で改めて採点）
   const results = quiz.map(it => {
     const sel = [...it.selected].sort((a, b) => a - b);
@@ -1184,6 +1289,7 @@ const FILTERS = [
   { key: 'sureOk',   label: '自信ありで正解',      test: r => r.conf === 'あり' && r.correct },
 ];
 let lastResults = [];
+let quizMeta = {};
 
 function showResult(results) {
   showScreen('resultScreen');
@@ -1255,6 +1361,119 @@ function showResult(results) {
     list.appendChild(div);
   });
   filterBy('all', true);
+}
+
+// ===== 学習ノート（PDF出力） =====
+// 復習の優先度：1 自信ありで不正解 → 2 不正解（自信なし・未選択・未回答）→ 3 自信なし（または未選択）で正解 → 4 自信ありで正解
+function notePriority(r) {
+  if (!r.correct && r.conf === 'あり') return [1, '⚠ 思い込み・誤解', '#DC2626', '#FEF2F2'];
+  if (!r.correct) return [2, r.skipped ? '未回答' : '未習得', '#64748B', '#F1F5F9'];
+  if (r.conf !== 'あり') return [3, r.conf === 'なし' ? 'まぐれ当たり' : '正解（自信度未選択）', '#B77900', '#FFF9E6'];
+  return [4, '理解できている', '#16A34A', '#F0FDF4'];
+}
+function fmtDT(d) {
+  if (!d) return '';
+  const w = '日月火水木金土'[d.getDay()], p2 = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${w}）${p2(d.getHours())}:${p2(d.getMinutes())}`;
+}
+function noteSrc(q) { const m = String(q.text || '').match(/【([^】]*)】/); return m ? m[1].replace(/\s+/g, '') : ''; }
+function noteBody(q) { return String(q.text || '').replace(/^【[^】]*】\s*/, '').trim(); }
+
+function noteBlock(x, withExp, half) {
+  const q = x.q, pri = x.pri;
+  const lis = q.choices.map((c, k) => {
+    const n = k + 1, isA = q.answer.includes(n), isS = x.selected.includes(n);
+    const mk = isA && isS ? '○正答・✔解答' : isA ? '○ 正答' : isS ? '✔ あなたの解答' : '';
+    return `<li class="${isA ? 'ans' : isS ? 'mis' : ''}"><b>${n}.</b><span>${esc(c)}</span><span class="m" style="color:${isA ? '#16A34A' : '#DC2626'}">${mk}</span></li>`;
+  }).join('');
+  const confTag = x.conf === 'あり' ? '<span class="nt-tag nt-cy">自信あり</span>' : x.conf === 'なし' ? '<span class="nt-tag nt-cn">自信なし</span>' : '<span class="nt-tag nt-c0">自信度なし</span>';
+  const why = x.correct
+    ? '<div class="nt-why"><b>確認：</b><span>□ 正答の根拠を説明できる</span><span>□ 他の選択肢が誤りの理由も説明できる</span></div>'
+    : '<div class="nt-why"><b>間違えた理由：</b><span>□ 知識不足</span><span>□ 問題文の読み違い</span><span>□ 思い込み</span><span>□ 選択肢の比較不足</span><span>□ その他（　　　　　）</span></div>';
+  let exp = '';
+  if (withExp) {
+    const t = esc(String(q.explanation || '解説は登録されていない．')).replace(/\n\s*\n+/g, '\n').trim().replace(/【([^】]+)】/g, '<b>【$1】</b>');
+    exp = `<div class="nt-exp"><b>📖 解説</b>\n${t}</div>`;
+  }
+  const memoHint = withExp ? '解説を自分の言葉で書き直す／図を描く／関連知識を書き足す' : '正答の根拠・間違えた理由・関連知識を自分の言葉で';
+  return `<div class="nt-ctop"><span class="nt-qno">問${x.no}</span><span class="nt-src">${esc(noteSrc(q))}　${esc(q.major)} › ${esc(q.minor || '')}</span>`
+    + `<span class="nt-tag ${x.correct ? 'nt-ok' : 'nt-ng'}">${x.correct ? '✅ 正解' : x.skipped ? '⏭ 未回答' : '❌ 不正解'}</span>${confTag}`
+    + `<span class="nt-tag" style="background:${pri[3]};color:${pri[2]};margin-left:auto">${pri[1]}</span></div>`
+    + `<div class="nt-qa"><div class="l"><div class="nt-qtext">${esc(noteBody(q))}</div>${q.imageId ? `<img class="nt-qimg" data-img="${esc(q.imageId)}" alt="">` : ''}</div>`
+    + `<div class="r"><ol class="nt-ch">${lis}</ol></div></div>${exp}${why}`
+    + `<div class="nt-memo"><div class="t">✏ 自分の解釈・メモ <small>（${memoHint}）</small></div><div class="nt-ruled">${'<div></div>'.repeat(half ? 9 : 18)}</div></div>`;
+}
+
+function buildNote(type, range) {
+  const all = lastResults.map((r, i) => Object.assign({}, r, { no: i + 1, pri: notePriority(r) }));
+  const items = (range === 'weak' ? all.filter(r => !r.correct || r.conf !== 'あり') : all)
+    .sort((a, b) => a.pri[0] - b.pri[0] || a.no - b.no);
+  if (!items.length) return null;
+  const n = all.length, c = all.filter(r => r.correct).length;
+  const k = f => all.filter(f).length;
+  const sureOk = k(r => r.correct && r.conf === 'あり'), sureNg = k(r => !r.correct && r.conf === 'あり');
+  const unOk = k(r => r.correct && r.conf === 'なし'), unNg = k(r => !r.correct && r.conf === 'なし');
+  const mins = quizMeta.start && quizMeta.end ? Math.max(1, Math.round((quizMeta.end - quizMeta.start) / 60000)) : null;
+  const perPage = type === 'compact' ? 2 : 1;
+  const total = 1 + Math.ceil(items.length / perPage);
+  const p2 = d => String(d).padStart(2, '0');
+  let h = `<div class="nt-page"><div class="nt-head"><div><h1>📘 学習ノート</h1><div style="font-size:8.4pt;color:#475569">PT国試 強化組　Web問題演習</div></div>`
+    + `<div class="nt-meta">学籍番号：${esc(user.sid)}　氏名：${esc(user.name)}<br>実施：${fmtDT(quizMeta.start)}${quizMeta.end ? `〜${p2(quizMeta.end.getHours())}:${p2(quizMeta.end.getMinutes())}` : ''}${mins ? `（${mins}分）` : ''}<br>出題：${esc(quizMeta.scope || '')}</div></div>`
+    + `<div class="nt-sum"><div class="nt-tile"><b>${c}/${n}問</b><span>正解数</span></div><div class="nt-tile"><b>${Math.round(c / n * 100)}%</b><span>正答率</span></div>`
+    + `<div class="nt-tile"><b>${sureNg}問</b><span>自信ありで不正解</span></div><div class="nt-tile"><b>${k(r => r.conf === 'なし')}問</b><span>自信なし</span></div></div>`
+    + `<div class="nt-flex"><table class="nt-mx"><tr><th></th><th>正解</th><th>不正解・未回答</th></tr>`
+    + `<tr><th>自信あり</th><td style="background:#F0FDF4;color:#16A34A"><b>${sureOk}</b>理解できている</td><td style="background:#FEF2F2;color:#DC2626;outline:2px solid #FCA5A5"><b>${sureNg}</b>思い込み・誤解</td></tr>`
+    + `<tr><th>自信なし</th><td style="background:#FFF9E6;color:#B77900"><b>${unOk}</b>まぐれ当たり</td><td style="background:#F1F5F9;color:#64748B"><b>${unNg}</b>未習得</td></tr>`
+    + (k(r => !r.conf) ? `<tr><td colspan="3" style="font-size:7pt;color:#64748B">自信度未選択：${k(r => !r.conf)}問</td></tr>` : '') + `</table>`
+    + `<div class="nt-order"><b>復習の優先順（次ページ以降の並び）</b><ol>`
+    + items.slice(0, 12).map(x => `<li>問${x.no}（${esc(noteSrc(x.q))}）<span style="color:${x.pri[2]}">${x.pri[1]}</span></li>`).join('')
+    + (items.length > 12 ? `<li style="list-style:none;color:#64748B">ほか${items.length - 12}問</li>` : '') + `</ol></div></div>`
+    + `<p class="nt-howto">※ ${range === 'weak' ? '不正解と自信なしの問題のみを掲載．' : ''}2ページ目以降は${perPage === 1 ? '1問1ページ．上部に問題・正答・解説，下半分は' : '1ページに2問．各問題の下は'}「自分の解釈・メモ」欄として，自分の言葉で書き直したり，図や関連知識を書き足したりして使う．</p>`
+    + `<div class="nt-memo"><div class="t">✏ 今回の振り返り <small>（苦手だった分野・次に解く範囲・覚え直すことなど）</small></div><div class="nt-ruled">${'<div></div>'.repeat(16)}</div></div>`
+    + `<div class="nt-foot">1 / ${total}</div></div>`;
+  for (let i = 0, pg = 2; i < items.length; i += perPage, pg++) {
+    const group = items.slice(i, i + perPage);
+    if (perPage === 1) h += `<div class="nt-page">${noteBlock(group[0], true, false)}<div class="nt-foot">${pg} / ${total}</div></div>`;
+    else h += `<div class="nt-page">${group.map(x => `<div class="nt-half">${noteBlock(x, false, true)}</div>`).join('')}`
+      + (group.length < 2 ? '<div class="nt-half" style="border-top:none"></div>' : '') + `<div class="nt-foot">${pg} / ${total}</div></div>`;
+  }
+  return h;
+}
+
+// 画像の読み込みを待ってから印刷画面を開く
+async function printNote() {
+  const type = document.querySelector('input[name="noteType"]:checked').value;
+  const range = document.querySelector('input[name="noteRange"]:checked').value;
+  const html = buildNote(type, range);
+  if (!html) { $('noteMsg').innerHTML = '<div class="error-msg">対象の問題がない（全問が自信ありで正解）．「全問」を選んでほしい．</div>'; return; }
+  $('noteMsg').innerHTML = '';
+  const area = $('noteArea');
+  area.innerHTML = html;
+  const imgs = [...area.querySelectorAll('img[data-img]')];
+  if (imgs.length) {
+    $('noteBtn').disabled = true; $('noteBtn').textContent = '画像を準備中…';
+    await Promise.race([
+      Promise.all(imgs.map(img => new Promise(res => {
+        const done = () => res();
+        img.addEventListener('load', done, { once: true });
+        loadImage(img, img.dataset.img);
+        img.addEventListener('error', () => setTimeout(done, 4000), { once: true });
+        if (img.complete && img.naturalWidth) done();
+      }))),
+      new Promise(res => setTimeout(res, 12000))
+    ]);
+    $('noteBtn').disabled = false; $('noteBtn').textContent = '学習ノートを出力する';
+    // 読み込めなかった画像は，壊れた画像の代わりに案内文を出す
+    imgs.forEach(img => {
+      if (!(img.complete && img.naturalWidth)) {
+        const d = document.createElement('div');
+        d.style.cssText = 'font-size:7pt;color:#94A3B8;border:1px dashed #CBD5E1;padding:4px;text-align:center';
+        d.textContent = '（図は画像を読み込めなかったため省略．アプリの結果画面で確認）';
+        img.replaceWith(d);
+      }
+    });
+  }
+  window.print();
 }
 
 function filterBy(key, noScroll) {
