@@ -197,6 +197,13 @@
   .ses-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
   .ses-table .n { text-align: right; }
 
+  .rq-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .rq-desc { font-size: 0.8rem; color: var(--gray); margin-bottom: 8px; line-height: 1.6; }
+  .rq-item { border-bottom: 1px solid var(--border); padding: 9px 0; font-size: 0.85rem; }
+  .rq-item:last-child { border-bottom: none; }
+  .rq-meta { font-size: 0.74rem; color: var(--gray); margin-bottom: 3px; }
+  .rq-item details { margin-top: 5px; }
+  .rq-item summary { color: var(--teal); cursor: pointer; font-size: 0.8rem; }
   .hidden { display: none !important; }
   .error-msg { background: #FEE2E2; color: var(--wrong); padding: 12px; border-radius: 10px; text-align: center; margin: 10px 0; font-size: 0.88rem; }
 
@@ -361,7 +368,7 @@
       <table class="matrix" id="tsMatrix"></table>
     </div>
     <div class="card">
-      <h2>⚠️ 自信ありで間違えた問題</h2>
+      <h2>🎯 解き直したい問題（直近の解答）</h2>
       <div id="tsSureWrong"></div>
     </div>
     <div class="card">
@@ -380,6 +387,11 @@
 
     <button class="start-btn" style="margin-bottom:10px" onclick="showScreen('setupScreen')">📝 演習を始める →</button>
     <button class="send-btn" onclick="openSendModal()">📨 教員に学習レポートを送る</button>
+
+    <div class="card">
+      <h2>🎯 解き直したい問題</h2>
+      <div id="meRq"></div>
+    </div>
 
     <div class="card">
       <h2>📈 日ごとの正答率</h2>
@@ -418,6 +430,8 @@
           <label><input type="radio" name="qFilter" value="all" checked onchange="buildTree()">すべての問題</label>
           <label><input type="radio" name="qFilter" value="new" onchange="buildTree()">まだ解いていない問題のみ</label>
           <label><input type="radio" name="qFilter" value="wrong" onchange="buildTree()">間違えたままの問題のみ<small>直近の解答が不正解・未回答の問題</small></label>
+          <label><input type="radio" name="qFilter" value="sureNg" onchange="buildTree()">⚠️ 自信ありで間違えた問題<small>直近の解答が「自信あり・不正解」</small></label>
+          <label><input type="radio" name="qFilter" value="unsureOk" onchange="buildTree()">🤔 自信なしで正解した問題<small>直近の解答が「自信なし・正解」</small></label>
         </div>
         <p class="note" id="qFilterNote"></p>
       </div>
@@ -743,7 +757,7 @@ function logout() {
   localStorage.removeItem(STORE_USER);
   localStorage.removeItem(STORE_TEACHER);
   user = null; stats = null; teacher = null; overview = null;
-  answeredSet = new Set(); wrongSet = new Set(); historyLoaded = false;
+  answeredSet = new Set(); wrongSet = new Set(); historyLoaded = false; sureNgSet = new Set(); unsureOkSet = new Set();
   $('userBox').classList.add('hidden');
   $('sidInput').value = ''; $('passInput').value = '';
   $('passInput').classList.add('hidden');
@@ -762,6 +776,8 @@ async function goHome() {
     stats = r;
     answeredSet = new Set((r.answered || []).map(String));
     wrongSet = new Set((r.wrongLatest || []).map(String));
+    sureNgSet = new Set((r.sureNgNow || []).map(x => String(x.id)));
+    unsureOkSet = new Set((r.unsureOkNow || []).map(x => String(x.id)));
     historyLoaded = true;
     buildTree();
     refreshQuestionsIfUpdated(r.qVersion);
@@ -779,6 +795,7 @@ function renderDashboard() {
   $('tDays').textContent = stats.days;
   drawDaily('dailyChart', 'dailyBox', 'dailyEmpty', stats.daily, 'まだ解答記録がない．演習を始めよう．');
   drawFieldSection('', stats.fields);
+  renderRq('meRq', { sureNg: stats.sureNgNow || [], unsureOk: stats.unsureOkNow || [] }, true);
 }
 
 // 日ごとの正答率（折れ線）
@@ -856,6 +873,36 @@ function drawFieldSection(prefix, fields) {
       }
     }
   });
+}
+
+// ===== 解き直したい問題（自信ありで不正解／自信なしで正解）=====
+const RQ = {
+  sureNg:   { label: '⚠️ 自信ありで不正解', color: 'var(--wrong)', desc: '正しいと思い込んでいた問題．誤った知識のまま本番でも間違える可能性が高いので，最優先で解き直す．' },
+  unsureOk: { label: '🤔 自信なしで正解', color: '#B77900', desc: 'たまたま当たった，または知識があいまいな問題．次に出たら間違える可能性があるので，根拠を確認しておく．' }
+};
+const rqTab = {};
+function renderRq(boxId, lists, forStudent) {
+  const key = rqTab[boxId] || 'sureNg';
+  const qmap = Object.fromEntries(allQuestions.map(q => [q.id, q]));
+  const list = lists[key] || [];
+  const tabs = Object.keys(RQ).map(k => `<button class="tab-btn ${k === key ? 'active' : ''}" onclick="rqTab['${boxId}']='${k}';renderRq('${boxId}',window.__rq['${boxId}'],${forStudent})">${RQ[k].label}（${(lists[k] || []).length}）</button>`).join('');
+  window.__rq = window.__rq || {}; window.__rq[boxId] = lists;
+  const items = list.slice(0, 30).map(w => {
+    const q = qmap[String(w.id)];
+    const src = q ? noteSrc(q) : '';
+    return `<div class="rq-item"><div class="rq-meta">${esc(w.date.slice(5).replace('-', '/'))}・${esc(src)}・${esc(w.minor)}・選択 ${esc(w.sel)} → 正答 ${esc(w.ans)}</div>
+      <div>${esc(q ? noteBody(q).slice(0, 120) + (noteBody(q).length > 120 ? '…' : '') : '問題ID ' + w.id)}</div>
+      ${q ? `<details><summary>選択肢と解説</summary><ol style="margin:6px 0 6px 20px">${q.choices.map(ch => `<li>${esc(ch)}</li>`).join('')}</ol><div class="explanation"><div>${esc(q.explanation || '')}</div></div></details>` : ''}</div>`;
+  }).join('');
+  $(boxId).innerHTML = `<div class="rq-tabs">${tabs}</div><p class="rq-desc" style="color:${RQ[key].color}">${RQ[key].desc}</p>`
+    + (list.length ? items + (list.length > 30 ? `<p class="note">ほか${list.length - 30}問（新しい順に30問まで表示）</p>` : '')
+                   : '<div class="empty">該当する問題はない．</div>')
+    + (forStudent && list.length ? `<button class="start-btn" style="margin-top:10px" onclick="practiceRq('${key}')">この${list.length}問を演習する →</button>` : '');
+}
+function practiceRq(key) {
+  showScreen('setupScreen');
+  document.querySelector(`input[name="qFilter"][value="${key}"]`).checked = true;
+  activeMajor = null; selectedCats.clear(); buildTree(); selectAll();
 }
 
 // ===== 学生：教員にレポートを送る =====
@@ -978,6 +1025,7 @@ const T_COLS = [
   { key: 'w7rate', label: '7日 正答率', num: true },
   { key: 'diff', label: '前週比', num: true },
   { key: 'sureNg7', label: '7日 自信あり不正解', num: true },
+  { key: 'unsureOk7', label: '7日 自信なし正解', num: true },
   { key: 'total', label: '累計 解答数', num: true },
   { key: 'rate', label: '累計 正答率', num: true },
   { key: 'lastDate', label: '最終学習日' },
@@ -1000,6 +1048,7 @@ function renderOverview() {
     : c.key === 'diff' ? `<span style="color:${v >= 0 ? 'var(--correct)' : 'var(--wrong)'}">${v >= 0 ? '+' : ''}${v}</span>`
     : c.key === 'lastDate' ? v.slice(5).replace('-', '/')
     : c.key === 'sureNg7' && v > 0 ? `<b style="color:var(--wrong)">${v}</b>`
+    : c.key === 'unsureOk7' && v > 0 ? `<b style="color:#B77900">${v}</b>`
     : c.key === 'name' && s.exclude ? `${esc(v)} <span class="conf-tag none">集計除外</span>` : esc(v);
   $('tTable').innerHTML =
     '<tr>' + T_COLS.map(c => `<th class="${c.num ? 'n' : ''} ${tSort.key === c.key ? 'sorted' + (tSort.asc ? ' asc' : '') : ''}" onclick="sortOverview('${c.key}')">${c.label}</th>`).join('') + '</tr>' +
@@ -1030,14 +1079,7 @@ async function openStudent(sid) {
       <tr><th>自信あり</th><td class="m-ok"><b>${c.sureOk}</b><span>理解できている</span></td><td class="m-warn"><b>${c.sureNg}</b><span>⚠️ 思い込み・誤解</span></td></tr>
       <tr><th>自信なし</th><td class="m-luck"><b>${c.unsureOk}</b><span>まぐれ当たり</span></td><td class="m-ng"><b>${c.unsureNg}</b><span>未習得</span></td></tr>
       ${c.none ? `<tr><td colspan="3" class="note">自信度未選択：${c.none}問</td></tr>` : ''}`;
-    const qmap = Object.fromEntries(allQuestions.map(q => [q.id, q]));
-    $('tsSureWrong').innerHTML = r.sureWrong.length ? r.sureWrong.slice(0, 50).map((w, i) => {
-      const q = qmap[w.id];
-      return `<div class="sw-item ${i >= 10 ? 'hidden more' : ''}"><div class="sw-meta">${w.date.slice(5).replace('-', '/')}・${esc(w.minor)}・選択 ${esc(w.sel)} → 正答 ${esc(w.ans)}${w.count > 1 ? `・<b style="color:var(--wrong)">${w.count}回</b>` : ''}</div>
-        <div>${esc(q ? q.text : '問題ID ' + w.id)}</div>
-        ${q ? `<details><summary>選択肢と解説</summary><ol style="margin:6px 0 6px 20px">${q.choices.map(ch => `<li>${esc(ch)}</li>`).join('')}</ol><div class="explanation"><div>${esc(q.explanation || '')}</div></div></details>` : ''}</div>`;
-    }).join('') + (r.sureWrong.length > 10 ? `<button class="all-btn" style="margin-top:10px" onclick="this.remove();document.querySelectorAll('#tsSureWrong .more').forEach(e=>e.classList.remove('hidden'))">もっと見る（全${Math.min(50, r.sureWrong.length)}問）</button>` : '')
-      : '<div class="empty">該当なし</div>';
+    renderRq('tsSureWrong', { sureNg: r.sureNgNow || [], unsureOk: r.unsureOkNow || [] }, false);
     $('tsSessions').innerHTML = r.sessions.length ? '<table class="ses-table"><tr><th>日時</th><th class="n">問題数</th><th class="n">正答率</th><th class="n">所要時間</th><th class="n">自信あり不正解</th></tr>' +
       r.sessions.map(x => `<tr><td>${esc(x.at.slice(5).replace('-', '/'))}</td><td class="n">${x.n}</td><td class="n">${x.rate}%</td><td class="n">${x.minutes === '' ? '–' : x.minutes + '分'}</td><td class="n">${x.sureWrong === '' ? '–' : x.sureWrong}</td></tr>`).join('') + '</table>'
       : '<div class="empty">記録なし</div>';
@@ -1076,13 +1118,18 @@ function passHistoryFilter(q) {
   const f = qFilterValue();
   if (f === 'new') return !answeredSet.has(q.id);
   if (f === 'wrong') return wrongSet.has(q.id);
+  if (f === 'sureNg') return sureNgSet.has(q.id);
+  if (f === 'unsureOk') return unsureOkSet.has(q.id);
   return true;
 }
 function buildTree() {
   const f = qFilterValue();
   if ($('qFilterNote')) {
     $('qFilterNote').textContent = f === 'all' ? '' : !historyLoaded ? '解答履歴を読み込み中…（マイページを開くと読み込まれる）'
-      : f === 'new' ? `これまでに解いた ${answeredSet.size}問を除いて出題する．` : `間違えたままの問題は ${wrongSet.size}問ある．`;
+      : f === 'new' ? `これまでに解いた ${answeredSet.size}問を除いて出題する．`
+      : f === 'wrong' ? `間違えたままの問題は ${wrongSet.size}問ある．`
+      : f === 'sureNg' ? `自信ありで間違えた問題は ${sureNgSet.size}問ある．解き直して正解すれば対象から外れる．`
+      : `自信なしで正解した問題は ${unsureOkSet.size}問ある．「自信あり」で正解すれば対象から外れる．`;
   }
   const counts = {};
   allQuestions.forEach(q => {
@@ -1139,7 +1186,8 @@ function startQuiz() {
   const pool = allQuestions.filter(q => selectedCats.has(catOf(q.minor)) && (!activeMajor || q.major === activeMajor) && passHistoryFilter(q));
   if (!pool.length) {
     const f = qFilterValue();
-    showError('setupError', f === 'new' ? '選択した分野に，まだ解いていない問題はない．' : f === 'wrong' ? '選択した分野に，間違えたままの問題はない．' : '選択した分野に問題がありません．');
+    const msg = { new: 'まだ解いていない問題', wrong: '間違えたままの問題', sureNg: '自信ありで間違えた問題', unsureOk: '自信なしで正解した問題' }[f];
+    showError('setupError', msg ? `選択した分野に，${msg}はない．` : '選択した分野に問題がありません．');
     return;
   }
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
@@ -1280,6 +1328,9 @@ async function submitQuiz() {
     const ok = sel.length > 0 && sel.length === ans.length && sel.every((v, i) => v === ans[i]);
     answeredSet.add(it.q.id);
     ok ? wrongSet.delete(it.q.id) : wrongSet.add(it.q.id);
+    sureNgSet.delete(it.q.id); unsureOkSet.delete(it.q.id);
+    if (it.conf === 'あり' && !ok) sureNgSet.add(it.q.id);
+    if (it.conf === 'なし' && ok) unsureOkSet.add(it.q.id);
   });
   buildTree();
   // 画面表示用の採点（記録はサーバー側で改めて採点）
@@ -1322,7 +1373,8 @@ const FILTERS = [
 ];
 let lastResults = [];
 let quizMeta = {};
-let answeredSet = new Set(), wrongSet = new Set(), historyLoaded = false;   // 解答履歴（出題の絞り込み用）
+let answeredSet = new Set(), wrongSet = new Set(), historyLoaded = false;
+let sureNgSet = new Set(), unsureOkSet = new Set();   // 直近の解答が「自信あり・不正解」「自信なし・正解」の問題   // 解答履歴（出題の絞り込み用）
 
 function showResult(results) {
   showScreen('resultScreen');
